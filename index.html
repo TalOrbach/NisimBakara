@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📁</text></svg>">
+    <title>בחירת תיקיה - מכון בקרה ניסים שוקר</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <h1 class="header__title">מכון בקרה ניסים שוקר</h1>
+        <p class="header__subtitle">בחירת תיקיה להעלאת תמונות</p>
+    </header>
+
+    <main class="main">
+        <!-- Breadcrumb navigation -->
+        <nav id="breadcrumbs" class="breadcrumbs" hidden></nav>
+
+        <!-- Auto-selection notification -->
+        <div id="auto-msg" class="auto-msg" hidden></div>
+
+        <!-- Search / filter -->
+        <div id="search-box" class="search-box" hidden>
+            <svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input type="search" id="search-input" class="search-box__input" placeholder="חיפוש פרויקט..." autocomplete="off">
+        </div>
+
+        <!-- Loading spinner -->
+        <div id="loading" class="loading" hidden>
+            <div class="loading__spinner"></div>
+            <span class="loading__text">טוען תיקיות...</span>
+        </div>
+
+        <!-- Error state -->
+        <div id="error" class="error" hidden>
+            <p id="error-text" class="error__text"></p>
+            <button id="retry-btn" class="btn btn--primary">נסה שוב</button>
+        </div>
+
+        <!-- Empty folder state -->
+        <div id="empty" class="empty" hidden>
+            <p class="empty__text">תיקיה ריקה</p>
+        </div>
+
+        <!-- Folder list -->
+        <ul id="folder-list" class="folder-list"></ul>
+
+        <!-- Target folder (תמונות) indicator -->
+        <div id="target-folder" class="target-folder" hidden>
+            <div class="target-folder__badge">תיקיית יעד</div>
+            <p id="target-path" class="target-folder__path"></p>
+            <p class="target-folder__note">תמונות יועלו לתיקיה זו (בשלב הבא)</p>
+        </div>
+
+        <!-- Create new visit (Phase 1: display only) -->
+        <div id="create-visit" class="create-visit" hidden>
+            <button id="create-visit-btn" class="btn btn--secondary" type="button">
+                + יצירת ביקור חדש
+            </button>
+            <div id="visit-form" class="create-visit__form" hidden>
+                <label for="visit-name" class="create-visit__label">שם התיקיה שתיווצר:</label>
+                <input type="text" id="visit-name" class="create-visit__input" dir="rtl">
+                <p class="create-visit__hint">בשלב זה התיקיה לא תיווצר בפועל</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
