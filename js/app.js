@@ -121,6 +121,15 @@
         showLoading(false);
 
         if (folders.length === 0) {
+          // Check if we're inside a visit folder (תמונות will be created on first upload)
+          var currentName = state.breadcrumbs.length > 0
+            ? state.breadcrumbs[state.breadcrumbs.length - 1].name
+            : '';
+          if (/(?:דוח\s+)?ביקור/.test(currentName)) {
+            state.targetFolder = { name: 'תמונות', id: state.breadcrumbs[state.breadcrumbs.length - 1].id, create: true };
+            state.targetFolderExists = false;
+            showTargetFolder();
+          }
           showEmpty();
           renderBreadcrumbs();
           updateSearchVisibility();
