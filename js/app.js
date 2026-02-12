@@ -340,20 +340,18 @@
 
     var maxNum = 0;
     visitFolders.forEach(function (f) {
-      var nums = f.name.match(/\d+/g);
-      if (nums) {
-        nums.forEach(function (n) {
-          var parsed = parseInt(n, 10);
-          if (parsed > maxNum && parsed < 1000) maxNum = parsed;
-        });
+      var match = f.name.match(/(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?(\d+)/);
+      if (match) {
+        var parsed = parseInt(match[1], 10);
+        if (parsed > maxNum) maxNum = parsed;
       }
     });
 
     var nextNum = maxNum + 1;
     var today = new Date();
-    var day = today.getDate();
-    var month = today.getMonth() + 1;
-    var year = String(today.getFullYear()).slice(-2);
+    var day = String(today.getDate()).padStart(2, '0');
+    var month = String(today.getMonth() + 1).padStart(2, '0');
+    var year = today.getFullYear();
     return 'ביקור ' + nextNum + ' ' + day + '-' + month + '-' + year;
   }
 
