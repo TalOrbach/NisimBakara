@@ -27,7 +27,7 @@ A mobile-friendly web form for construction site inspectors to upload photos dir
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
 │   Web Form      │──────│   Make.com      │──────│   SharePoint    │
-│ (Vercel/Netlify)│      │   Scenarios     │      │                 │
+│ (Cloudflare)    │      │   Scenarios     │      │                 │
 └─────────────────┘      └─────────────────┘      └─────────────────┘
         │                        │
         ▼                        │
@@ -113,20 +113,35 @@ Folder navigation web form — built, tested locally, working with live webhook.
 - Auto-selects "בקרת ביצוע" and single "דוחות*" folders
 - Breadcrumb navigation with back-tracking
 - "Create Visit" name generation (display only, no actual folder creation)
-- "תמונות" target folder detection
+- "תמונות" target folder detection (also detects visit folders without תמונות subfolder)
 - Loading spinner, error/retry, empty folder states
 
 ### Known Technical Notes
 - CSS must include `[hidden] { display: none !important; }` — without it, elements with `display: flex` in CSS override the HTML `hidden` attribute
 - Webhook response is Graph API JSON with `{ value: [...] }` wrapper — code handles both array and object responses
 - `SHAREPOINT CREDS.jpeg` is in `.gitignore` (never commit credentials)
+- **Visit numbering regex** must handle many naming variants found across projects:
+  - `ביקור N`, `ביקור מס N`, `ביקור מס' N`, `ביקור מספר N`
+  - `דוח ביקור N`, `דוח ביקור מס N`, `דוח ביקור - מס N`, `דוח ביקור מס' N`
+  - Regex: `/(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?(\d+)/`
+  - Must NOT extract numbers from date parts in folder names
+- Visit date format: DD-MM-YYYY (zero-padded day and month, 4-digit year)
+- **Visit folder detection** uses `/(?:דוח\s+)?ביקור/` to identify visit folders — when inside one without a תמונות subfolder, shows target indicator with "will be created automatically" note
+- Visit folder detection must run in BOTH the empty-folder path and the has-children path
 
 ### Not Yet Done
-- [ ] Deploy to Vercel
-- [ ] Push to GitHub remote
+- [x] ~~Deploy~~ → DONE: Cloudflare Pages at https://nisim-bakara.pages.dev
+- [x] ~~Push to GitHub remote~~ → DONE: https://github.com/TalOrbach/NisimBakara
 - [ ] Phase 2: Folder creation via new Make.com webhook
 - [ ] Phase 3: Photo upload to selected תמונות folder
 - [ ] Phase 4: LocalStorage persistence (10-hour folder memory)
+
+## Hosting & Deployment
+- **Platform:** Cloudflare Pages (free tier, no commercial-use restrictions)
+- **Production URL:** https://nisim-bakara.pages.dev
+- **GitHub repo:** https://github.com/TalOrbach/NisimBakara
+- **Deploy method:** Manual via `npx wrangler pages deploy /Users/talorbach/Code/NisimBakara --project-name nisim-bakara`
+- **No auto-deploy** — deploy on request only
 
 ## Files in This Directory
 - `index.html` — Main web form (Phase 1 folder navigation)
