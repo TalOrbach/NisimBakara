@@ -35,6 +35,7 @@
     folderList: document.getElementById('folder-list'),
     targetFolder: document.getElementById('target-folder'),
     targetPath: document.getElementById('target-path'),
+    targetNote: document.getElementById('target-note'),
     createVisit: document.getElementById('create-visit'),
     createVisitBtn: document.getElementById('create-visit-btn'),
     visitForm: document.getElementById('visit-form'),
@@ -131,6 +132,17 @@
         var photosFolder = folders.find(function (f) { return f.name === 'תמונות'; });
         if (photosFolder) {
           state.targetFolder = photosFolder;
+          state.targetFolderExists = true;
+        } else {
+          // Check if we're inside a visit folder (תמונות will be created on first upload)
+          var currentName = state.breadcrumbs.length > 0
+            ? state.breadcrumbs[state.breadcrumbs.length - 1].name
+            : '';
+          var isVisitFolder = /(?:דוח\s+)?ביקור/.test(currentName);
+          if (isVisitFolder) {
+            state.targetFolder = { name: 'תמונות', id: state.breadcrumbs[state.breadcrumbs.length - 1].id, create: true };
+            state.targetFolderExists = false;
+          }
         }
 
         // Auto-selection cascade
@@ -305,6 +317,9 @@
     dom.targetFolder.hidden = false;
     var path = state.breadcrumbs.map(function (b) { return b.name; }).join(' / ') + ' / תמונות';
     dom.targetPath.textContent = path;
+    dom.targetNote.textContent = state.targetFolderExists
+      ? 'תמונות יועלו לתיקיה זו (בשלב הבא)'
+      : 'תיקיית תמונות תיווצר אוטומטית בהעלאה הראשונה';
   }
 
   function updateSearchVisibility() {
