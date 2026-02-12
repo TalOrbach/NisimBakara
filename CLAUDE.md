@@ -99,6 +99,38 @@ A mobile-friendly web form for construction site inspectors to upload photos dir
 {site}/drive/items/{driveItemId}/children?$select=name,id,folder&$top=999
 ```
 
+## Phase 1 Status: COMPLETE (Feb 12, 2026)
+Folder navigation web form — built, tested locally, working with live webhook.
+
+### What's Built
+- `index.html` — Hebrew RTL single-page app
+- `css/style.css` — Mobile-first responsive design
+- `js/app.js` — Folder browsing via Make.com webhook
+
+### Working Features
+- Loads ~391 projects from SharePoint via webhook
+- Real-time search/filter on project list
+- Auto-selects "בקרת ביצוע" and single "דוחות*" folders
+- Breadcrumb navigation with back-tracking
+- "Create Visit" name generation (display only, no actual folder creation)
+- "תמונות" target folder detection
+- Loading spinner, error/retry, empty folder states
+
+### Known Technical Notes
+- CSS must include `[hidden] { display: none !important; }` — without it, elements with `display: flex` in CSS override the HTML `hidden` attribute
+- Webhook response is Graph API JSON with `{ value: [...] }` wrapper — code handles both array and object responses
+- `SHAREPOINT CREDS.jpeg` is in `.gitignore` (never commit credentials)
+
+### Not Yet Done
+- [ ] Deploy to Vercel
+- [ ] Push to GitHub remote
+- [ ] Phase 2: Folder creation via new Make.com webhook
+- [ ] Phase 3: Photo upload to selected תמונות folder
+- [ ] Phase 4: LocalStorage persistence (10-hour folder memory)
+
 ## Files in This Directory
-- `SHAREPOINT CREDS.jpeg` - Screenshot of credentials (for reference)
+- `index.html` — Main web form (Phase 1 folder navigation)
+- `css/style.css` — Styles (mobile-first, Hebrew RTL)
+- `js/app.js` — Application logic (webhook calls, auto-selection, search)
+- `SHAREPOINT CREDS.jpeg` - Screenshot of credentials (for reference, gitignored)
 - `SCRNSHOT.jpeg` - Screenshot of SharePoint site showing folder structure
