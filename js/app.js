@@ -99,6 +99,24 @@
       });
   }
 
+  function uploadFile(folderId, fileName, file) {
+    var formData = new FormData();
+    formData.append('folderId', folderId);
+    formData.append('fileName', fileName);
+    formData.append('file', file, fileName);
+
+    return fetch(UPLOAD_WEBHOOK, {
+      method: 'POST',
+      body: formData,
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('שגיאה בהעלאת קובץ: ' + response.status);
+        }
+        return response.json();
+      });
+  }
+
   // ============================================
   // Navigation
   // ============================================
@@ -522,6 +540,101 @@
   }
 
   // ============================================
+  // Upload
+  // ============================================
+  function startUpload() {
+    if (state.photos.length === 0) return;
+
+    state.uploading = true;
+    dom.uploadBtn.disabled = true;
+    dom.uploadProgress.hidden = false;
+    dom.uploadResult.hidden = true;
+    dom.progressFill.style.width = '0%';
+    dom.progressText.textContent = 'מכין העלאה...';
+    renderPhotos();
+
+    var prepareTarget;
+    if (state.uploadTargetId) {
+      prepareTarget = Promise.resolve(state.uploadTargetId);
+    } else if (state.targetFolder && state.targetFolder.create) {
+      // Need to create תמונות folder first
+      dom.progressText.textContent = 'יוצר תיקיית תמונות...';
+      prepareTarget = createFolder(state.targetFolder.id, 'תמונות')
+        .then(function (folder) {
+          state.uploadTargetId = folder.id;
+          state.targetFolderExists = true;
+          return folder.id;
+        });
+    } else {
+      state.uploading = false;
+      return;
+    }
+
+    prepareTarget
+      .then(function (targetId) {
+        var total = state.photos.length;
+        var done = 0;
+        var failed = 0;
+
+        function uploadNext(index) {
+          if (index >= total) {
+            state.uploading = false;
+            dom.uploadProgress.hidden = true;
+            showUploadResult(done, failed, total);
+            renderPhotos();
+            updateUploadBtn();
+            return;
+          }
+
+          var photo = state.photos[index];
+          photo.status = 'uploading';
+          renderPhotos();
+          dom.progressText.textContent = 'מעלה ' + (index + 1) + ' מתוך ' + total + '...';
+          dom.progressFill.style.width = ((index + 1) / total * 100) + '%';
+
+          var fileName = photo.name.trim() + photo.ext;
+          uploadFile(targetId, fileName, photo.file)
+            .then(function () {
+              photo.status = 'done';
+              done++;
+            })
+            .catch(function () {
+              photo.status = 'error';
+              failed++;
+            })
+            .then(function () {
+              uploadNext(index + 1);
+            });
+        }
+
+        uploadNext(0);
+      })
+      .catch(function (err) {
+        state.uploading = false;
+        dom.uploadProgress.hidden = true;
+        dom.uploadResult.hidden = false;
+        dom.resultText.textContent = err.message || 'שגיאה ביצירת תיקיה';
+        dom.resultText.className = 'upload-result__text upload-result__text--error';
+        renderPhotos();
+        updateUploadBtn();
+      });
+  }
+
+  function showUploadResult(done, failed, total) {
+    dom.uploadResult.hidden = false;
+    if (failed === 0) {
+      dom.resultText.textContent = 'כל ' + total + ' התמונות הועלו בהצלחה!';
+      dom.resultText.className = 'upload-result__text upload-result__text--success';
+    } else if (done === 0) {
+      dom.resultText.textContent = 'ההעלאה נכשלה. נסה שוב.';
+      dom.resultText.className = 'upload-result__text upload-result__text--error';
+    } else {
+      dom.resultText.textContent = done + ' מתוך ' + total + ' הועלו. ' + failed + ' נכשלו.';
+      dom.resultText.className = 'upload-result__text upload-result__text--partial';
+    }
+  }
+
+  // ============================================
   // Event Handlers
   // ============================================
   dom.searchInput.addEventListener('input', function () {
@@ -596,6 +709,10 @@
         dom.visitCreating.hidden = true;
         dom.visitName.disabled = false;
       });
+  });
+
+  dom.uploadBtn.addEventListener('click', function () {
+    startUpload();
   });
 
   dom.photoInput.addEventListener('change', function () {
