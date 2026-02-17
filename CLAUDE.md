@@ -113,18 +113,27 @@ A mobile-friendly web form for construction site inspectors to upload photos dir
 ## Phase 1 Status: COMPLETE (Feb 12, 2026)
 Folder navigation web form — built, tested locally, working with live webhook.
 
+## Phase 2 & 3 Status: COMPLETE (Feb 17, 2026)
+Folder creation + photo upload — built, deployed, live at https://nisim-bakara.pages.dev
+
 ### What's Built
-- `index.html` — Hebrew RTL single-page app
-- `css/style.css` — Mobile-first responsive design
-- `js/app.js` — Folder browsing via Make.com webhook
+- `index.html` — Hebrew RTL single-page app with upload UI
+- `css/style.css` — Mobile-first responsive design with upload section styles
+- `js/app.js` — Folder browsing, folder creation, photo upload via Make.com webhooks
+- `docs/plans/` — Design doc and implementation plan
 
 ### Working Features
 - Loads ~391 projects from SharePoint via webhook
 - Real-time search/filter on project list
 - Auto-selects "בקרת ביצוע" and single "דוחות*" folders
 - Breadcrumb navigation with back-tracking
-- "Create Visit" name generation (display only, no actual folder creation)
+- **Create Visit folder** — actually creates visit folder + תמונות subfolder via Make.com webhook
 - "תמונות" target folder detection (also detects visit folders without תמונות subfolder)
+- **Photo upload section** — appears when target folder is detected
+- **Batch photo management** — add multiple photos from camera/gallery, custom name each, remove individual
+- **Sequential upload** — one photo at a time to Make.com webhook, with progress bar and per-photo status
+- **Auto-create תמונות** — if uploading from visit folder without תמונות, creates it first
+- **Upload result summary** — success/error/partial messages with retry capability
 - Loading spinner, error/retry, empty folder states
 
 ### Known Technical Notes
@@ -143,9 +152,10 @@ Folder navigation web form — built, tested locally, working with live webhook.
 ### Not Yet Done
 - [x] ~~Deploy~~ → DONE: Cloudflare Pages at https://nisim-bakara.pages.dev
 - [x] ~~Push to GitHub remote~~ → DONE: https://github.com/TalOrbach/NisimBakara
-- [ ] Phase 2: Folder creation (Make.com scenario 4509894 ready, web form integration TODO)
-- [ ] Phase 3: Photo upload (Make.com scenario 4509913 ready, web form integration TODO)
+- [x] ~~Phase 2: Folder creation~~ → DONE (Feb 17, 2026)
+- [x] ~~Phase 3: Photo upload~~ → DONE (Feb 17, 2026)
 - [ ] Phase 4: LocalStorage persistence (10-hour folder memory)
+- [ ] End-to-end testing of upload flow on live site (not yet tested with real photos)
 
 ## Hosting & Deployment
 - **Platform:** Cloudflare Pages (free tier, no commercial-use restrictions)
@@ -155,8 +165,9 @@ Folder navigation web form — built, tested locally, working with live webhook.
 - **No auto-deploy** — deploy on request only
 
 ## Files in This Directory
-- `index.html` — Main web form (Phase 1 folder navigation)
+- `index.html` — Main web form (folder navigation + upload UI)
 - `css/style.css` — Styles (mobile-first, Hebrew RTL)
-- `js/app.js` — Application logic (webhook calls, auto-selection, search)
+- `js/app.js` — Application logic (webhook calls, auto-selection, search, folder creation, photo upload)
+- `docs/plans/` — Design and implementation plans
 - `SHAREPOINT CREDS.jpeg` - Screenshot of credentials (for reference, gitignored)
 - `SCRNSHOT.jpeg` - Screenshot of SharePoint site showing folder structure
