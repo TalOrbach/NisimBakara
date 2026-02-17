@@ -6,6 +6,8 @@
   // ============================================
   var WEBHOOK_URL = 'https://hook.eu1.make.com/9jkw4vo5taer3ewajbu6t1c5tvrkgs2k';
   var ROOT_NAME = 'תיקים לבקרה';
+  var CREATE_FOLDER_WEBHOOK = 'https://hook.eu1.make.com/ryl1lrkm2tb9re6kgbdh1frud3ityhqy';
+  var UPLOAD_WEBHOOK = 'https://hook.eu1.make.com/a9rz1tlo9t4q6ki8nlrx1qpr4teafimb';
 
   // ============================================
   // State
@@ -17,6 +19,9 @@
     autoMessages: [],       // accumulated auto-selection messages
     targetFolder: null,     // תמונות folder if found
     searchQuery: '',
+    photos: [],           // [{file, name, ext, status, thumbUrl}] — status: pending|uploading|done|error
+    uploading: false,
+    uploadTargetId: null, // driveItemId of the folder to upload into
   };
 
   // ============================================
@@ -42,6 +47,19 @@
     createVisitBtn: document.getElementById('create-visit-btn'),
     visitForm: document.getElementById('visit-form'),
     visitName: document.getElementById('visit-name'),
+    uploadSection: document.getElementById('upload-section'),
+    photoInput: document.getElementById('photo-input'),
+    photoList: document.getElementById('photo-list'),
+    uploadBtn: document.getElementById('upload-btn'),
+    uploadProgress: document.getElementById('upload-progress'),
+    progressFill: document.getElementById('progress-fill'),
+    progressText: document.getElementById('progress-text'),
+    uploadResult: document.getElementById('upload-result'),
+    resultText: document.getElementById('result-text'),
+    resultCloseBtn: document.getElementById('result-close-btn'),
+    confirmVisitBtn: document.getElementById('confirm-visit-btn'),
+    visitCreating: document.getElementById('visit-creating'),
+    visitError: document.getElementById('visit-error'),
   };
 
   // ============================================
@@ -113,6 +131,11 @@
     hideEmpty();
     dom.folderList.innerHTML = '';
     dom.targetFolder.hidden = true;
+    dom.uploadSection.hidden = true;
+    state.photos.forEach(function (p) { URL.revokeObjectURL(p.thumbUrl); });
+    state.photos = [];
+    state.uploading = false;
+    state.uploadTargetId = null;
     dom.createVisit.hidden = true;
     dom.visitForm.hidden = true;
     dom.autoMsg.hidden = true;
@@ -329,8 +352,18 @@
     var path = state.breadcrumbs.map(function (b) { return b.name; }).join(' / ') + ' / תמונות';
     dom.targetPath.textContent = path;
     dom.targetNote.textContent = state.targetFolderExists
-      ? 'תמונות יועלו לתיקיה זו (בשלב הבא)'
+      ? 'תמונות יועלו לתיקיה זו'
       : 'תיקיית תמונות תיווצר אוטומטית בהעלאה הראשונה';
+
+    // Show upload section when we have a target
+    if (state.targetFolder) {
+      dom.uploadSection.hidden = false;
+      state.uploadTargetId = state.targetFolderExists
+        ? state.targetFolder.id
+        : null; // will be set after folder creation
+    } else {
+      dom.uploadSection.hidden = true;
+    }
   }
 
   function updateSearchVisibility() {
@@ -382,6 +415,99 @@
   }
 
   // ============================================
+  // Photo Management
+  // ============================================
+  function addPhotos(files) {
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
+      var ext = file.name.substring(file.name.lastIndexOf('.'));
+      state.photos.push({
+        file: file,
+        name: 'תמונה ' + (state.photos.length + 1),
+        ext: ext,
+        status: 'pending',
+        thumbUrl: URL.createObjectURL(file),
+      });
+    }
+    renderPhotos();
+    updateUploadBtn();
+  }
+
+  function removePhoto(index) {
+    URL.revokeObjectURL(state.photos[index].thumbUrl);
+    state.photos.splice(index, 1);
+    // Renumber default names
+    state.photos.forEach(function (p, i) {
+      if (/^תמונה \d+$/.test(p.name)) {
+        p.name = 'תמונה ' + (i + 1);
+      }
+    });
+    renderPhotos();
+    updateUploadBtn();
+  }
+
+  function renderPhotos() {
+    dom.photoList.innerHTML = '';
+    state.photos.forEach(function (photo, index) {
+      var li = document.createElement('li');
+      li.className = 'photo-item';
+      if (photo.status === 'error') li.className += ' photo-item--error';
+      if (photo.status === 'done') li.className += ' photo-item--success';
+
+      var thumb = document.createElement('img');
+      thumb.className = 'photo-item__thumb';
+      thumb.src = photo.thumbUrl;
+      thumb.alt = '';
+
+      var nameInput = document.createElement('input');
+      nameInput.className = 'photo-item__name';
+      nameInput.type = 'text';
+      nameInput.value = photo.name;
+      nameInput.dir = 'rtl';
+      nameInput.disabled = state.uploading;
+      (function (idx) {
+        nameInput.addEventListener('input', function () {
+          state.photos[idx].name = nameInput.value;
+          updateUploadBtn();
+        });
+      })(index);
+
+      li.appendChild(thumb);
+      li.appendChild(nameInput);
+
+      if (state.uploading) {
+        var status = document.createElement('span');
+        status.className = 'photo-item__status';
+        if (photo.status === 'done') status.textContent = '\u2705';
+        else if (photo.status === 'error') status.textContent = '\u274C';
+        else if (photo.status === 'uploading') status.textContent = '\u23F3';
+        li.appendChild(status);
+      } else {
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'photo-item__remove';
+        removeBtn.type = 'button';
+        removeBtn.textContent = '\u00D7';
+        removeBtn.title = 'הסר';
+        (function (idx) {
+          removeBtn.addEventListener('click', function () { removePhoto(idx); });
+        })(index);
+        li.appendChild(removeBtn);
+      }
+
+      dom.photoList.appendChild(li);
+    });
+  }
+
+  function updateUploadBtn() {
+    var hasPhotos = state.photos.length > 0;
+    var allNamed = state.photos.every(function (p) { return p.name.trim() !== ''; });
+    dom.uploadBtn.disabled = !hasPhotos || !allNamed || state.uploading;
+    dom.uploadBtn.textContent = hasPhotos
+      ? 'העלאה (' + state.photos.length + ' תמונות)'
+      : 'העלאה';
+  }
+
+  // ============================================
   // Event Handlers
   // ============================================
   dom.searchInput.addEventListener('input', function () {
@@ -408,6 +534,17 @@
     var name = generateVisitName();
     dom.visitName.value = name;
     dom.visitForm.hidden = false;
+  });
+
+  dom.photoInput.addEventListener('change', function () {
+    if (dom.photoInput.files.length > 0) {
+      addPhotos(dom.photoInput.files);
+    }
+    dom.photoInput.value = ''; // allow re-selecting same files
+  });
+
+  dom.resultCloseBtn.addEventListener('click', function () {
+    dom.uploadResult.hidden = true;
   });
 
   // ============================================
