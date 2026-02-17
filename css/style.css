@@ -91,16 +91,49 @@ ul {
 }
 
 /* ============================================
+   Nav Bar (Back + Breadcrumbs)
+   ============================================ */
+.nav-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0 0.25rem;
+}
+
+.btn--back {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.btn--back:active {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+
+/* ============================================
    Breadcrumbs
    ============================================ */
 .breadcrumbs {
     display: flex;
     align-items: center;
     gap: 0.125rem;
-    padding: 0.5rem 0 0.75rem;
+    padding: 0.25rem 0;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    min-width: 0;
+    flex: 1;
 }
 
 .breadcrumbs::-webkit-scrollbar {

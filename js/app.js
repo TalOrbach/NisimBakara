@@ -23,6 +23,8 @@
   // DOM References
   // ============================================
   var dom = {
+    navBar: document.getElementById('nav-bar'),
+    backBtn: document.getElementById('back-btn'),
     breadcrumbs: document.getElementById('breadcrumbs'),
     autoMsg: document.getElementById('auto-msg'),
     searchBox: document.getElementById('search-box'),
@@ -202,7 +204,7 @@
   // Rendering
   // ============================================
   function renderBreadcrumbs() {
-    dom.breadcrumbs.hidden = state.breadcrumbs.length <= 1;
+    dom.navBar.hidden = state.breadcrumbs.length <= 1;
     dom.breadcrumbs.innerHTML = '';
 
     state.breadcrumbs.forEach(function (crumb, index) {
@@ -385,6 +387,12 @@
   dom.searchInput.addEventListener('input', function () {
     state.searchQuery = dom.searchInput.value;
     renderFolders();
+  });
+
+  dom.backBtn.addEventListener('click', function () {
+    if (state.breadcrumbs.length > 1) {
+      navigateToBreadcrumb(state.breadcrumbs.length - 2);
+    }
   });
 
   dom.retryBtn.addEventListener('click', function () {

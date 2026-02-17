@@ -36,8 +36,7 @@ A mobile-friendly web form for construction site inspectors to upload photos dir
 ```
 
 ## Make.com Scenarios
-1. **Photo Upload** (TODO) - Webhook receives photos + metadata, uploads to correct SharePoint folder
-2. **Browse SharePoint Folders** (DONE) - Scenario 4455830, ACTIVE
+1. **Browse SharePoint Folders** (DONE) - Scenario 4455830, ACTIVE
    - Lazy-load folder browser via webhook
    - Webhook URL: `https://hook.eu1.make.com/9jkw4vo5taer3ewajbu6t1c5tvrkgs2k`
    - Input: `{"folderId": "root"}` for top-level, `{"folderId": "<driveItemId>"}` for subfolders
@@ -45,6 +44,18 @@ A mobile-friendly web form for construction site inspectors to upload photos dir
    - Modules: Webhook trigger (2) → SharePoint "Make an API Call" (4) → Webhook response (6)
    - URL formula uses `if(2.folderId = "root"; ...)` to route between root path and item-by-ID path
    - Query params: `$select=name,id,folder&$top=999`
+2. **Create SharePoint Folder** (DONE) - Scenario 4509894, ACTIVE
+   - Webhook URL: `https://hook.eu1.make.com/ryl1lrkm2tb9re6kgbdh1frud3ityhqy`
+   - Hook ID: 2503244
+   - Input: `{"parentId": "<driveItemId>", "folderName": "<name>"}`
+   - Graph API: `POST /drive/items/{parentId}/children` with `{name, folder: {}, conflictBehavior: "fail"}`
+   - Modules: Webhook trigger (2) → SharePoint API call (4) → Webhook response (6)
+3. **Upload File to SharePoint** (DONE) - Scenario 4509913, ACTIVE
+   - Webhook URL: `https://hook.eu1.make.com/a9rz1tlo9t4q6ki8nlrx1qpr4teafimb`
+   - Hook ID: 2503245
+   - Input: `{"folderId": "<driveItemId>", "fileName": "<name>"}` + binary file data
+   - Graph API: `PUT /drive/items/{folderId}:/{fileName}:/content`
+   - Modules: Webhook trigger (2) → SharePoint API call (4) → Webhook response (6)
 
 ## Folder Structure Storage
 **Chosen approach:** Lazy-load on demand via Make.com webhook (no storage needed)
@@ -132,8 +143,8 @@ Folder navigation web form — built, tested locally, working with live webhook.
 ### Not Yet Done
 - [x] ~~Deploy~~ → DONE: Cloudflare Pages at https://nisim-bakara.pages.dev
 - [x] ~~Push to GitHub remote~~ → DONE: https://github.com/TalOrbach/NisimBakara
-- [ ] Phase 2: Folder creation via new Make.com webhook
-- [ ] Phase 3: Photo upload to selected תמונות folder
+- [ ] Phase 2: Folder creation (Make.com scenario 4509894 ready, web form integration TODO)
+- [ ] Phase 3: Photo upload (Make.com scenario 4509913 ready, web form integration TODO)
 - [ ] Phase 4: LocalStorage persistence (10-hour folder memory)
 
 ## Hosting & Deployment
