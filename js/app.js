@@ -85,6 +85,20 @@
       });
   }
 
+  function createFolder(parentId, folderName) {
+    return fetch(CREATE_FOLDER_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parentId: parentId, folderName: folderName }),
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('שגיאה ביצירת תיקיה: ' + response.status);
+        }
+        return response.json();
+      });
+  }
+
   // ============================================
   // Navigation
   // ============================================
@@ -534,6 +548,54 @@
     var name = generateVisitName();
     dom.visitName.value = name;
     dom.visitForm.hidden = false;
+    dom.visitError.hidden = true;
+  });
+
+  dom.confirmVisitBtn.addEventListener('click', function () {
+    var visitName = dom.visitName.value.trim();
+    if (!visitName) return;
+
+    var parentId = state.breadcrumbs[state.breadcrumbs.length - 1].id;
+
+    dom.confirmVisitBtn.hidden = true;
+    dom.visitCreating.hidden = false;
+    dom.visitError.hidden = true;
+    dom.visitName.disabled = true;
+
+    // Step 1: Create visit folder
+    createFolder(parentId, visitName)
+      .then(function (visitFolder) {
+        // Step 2: Create תמונות inside it
+        return createFolder(visitFolder.id, 'תמונות')
+          .then(function (photosFolder) {
+            return { visitFolder: visitFolder, photosFolder: photosFolder };
+          });
+      })
+      .then(function (result) {
+        // Success: update breadcrumbs and set target
+        state.breadcrumbs.push({ name: result.visitFolder.name, id: result.visitFolder.id });
+        state.breadcrumbs.push({ name: 'תמונות', id: result.photosFolder.id });
+        state.targetFolder = result.photosFolder;
+        state.targetFolderExists = true;
+        state.uploadTargetId = result.photosFolder.id;
+
+        // Update UI
+        renderBreadcrumbs();
+        dom.createVisit.hidden = true;
+        dom.folderList.innerHTML = '';
+        dom.empty.hidden = true;
+        showTargetFolder();
+      })
+      .catch(function (err) {
+        dom.visitError.textContent = err.message || 'שגיאה ביצירת תיקיה';
+        dom.visitError.hidden = false;
+      })
+      .then(function () {
+        // Always reset form state
+        dom.confirmVisitBtn.hidden = false;
+        dom.visitCreating.hidden = true;
+        dom.visitName.disabled = false;
+      });
   });
 
   dom.photoInput.addEventListener('change', function () {
