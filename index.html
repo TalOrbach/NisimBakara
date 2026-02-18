@@ -3,23 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#1A6FA0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📁</text></svg>">
-    <title>בחירת תיקיה - מכון בקרה ניסים שוקר</title>
+    <title>העלאת תמונות - מכון בקרה ניסים שוקר</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <header class="header">
-        <h1 class="header__title">מכון בקרה ניסים שוקר</h1>
-        <p class="header__subtitle">בחירת תיקיה להעלאת תמונות</p>
+        <div class="header__brand">
+            <img src="/LOGO.png" alt="מכון בקרה ניסים שוקר" class="header__logo">
+        </div>
+        <div class="header__accent"></div>
     </header>
 
     <main class="main">
         <!-- Back button + Breadcrumb navigation -->
         <div id="nav-bar" class="nav-bar" hidden>
             <button id="back-btn" class="btn btn--back" type="button" title="חזרה">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 6 15 12 9 18" stroke="currentColor"/>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <polyline points="9 6 15 12 9 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
             <nav id="breadcrumbs" class="breadcrumbs"></nav>
