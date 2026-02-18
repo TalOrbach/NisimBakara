@@ -99,15 +99,30 @@
       });
   }
 
-  function uploadFile(folderId, fileName, file) {
-    var formData = new FormData();
-    formData.append('folderId', folderId);
-    formData.append('fileName', fileName);
-    formData.append('file', file, fileName);
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        // result is "data:mime;base64,XXXX" — strip prefix
+        var base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 
-    return fetch(UPLOAD_WEBHOOK, {
-      method: 'POST',
-      body: formData,
+  function uploadFile(folderId, fileName, file) {
+    return fileToBase64(file).then(function (base64Data) {
+      return fetch(UPLOAD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderId: folderId,
+          fileName: fileName,
+          fileData: base64Data,
+        }),
+      });
     })
       .then(function (response) {
         if (!response.ok) {
@@ -182,7 +197,7 @@
           var currentName = state.breadcrumbs.length > 0
             ? state.breadcrumbs[state.breadcrumbs.length - 1].name
             : '';
-          if (/(?:דוח\s+)?ביקור/.test(currentName)) {
+          if (/(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?\d+/.test(currentName)) {
             state.targetFolder = { name: 'תמונות', id: state.breadcrumbs[state.breadcrumbs.length - 1].id, create: true };
             state.targetFolderExists = false;
             showTargetFolder();
@@ -204,7 +219,7 @@
           var currentName = state.breadcrumbs.length > 0
             ? state.breadcrumbs[state.breadcrumbs.length - 1].name
             : '';
-          var isVisitFolder = /(?:דוח\s+)?ביקור/.test(currentName);
+          var isVisitFolder = /(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?\d+/.test(currentName);
           if (isVisitFolder) {
             state.targetFolder = { name: 'תמונות', id: state.breadcrumbs[state.breadcrumbs.length - 1].id, create: true };
             state.targetFolderExists = false;
@@ -413,8 +428,12 @@
   }
 
   function updateCreateVisitVisibility() {
-    // Show after auto-selection is done and we're deep enough
-    var show = state.pendingAutoChecks.length === 0 && state.breadcrumbs.length >= 4;
+    // Show only inside a reports folder (דוחות), not inside a visit folder
+    var currentName = state.breadcrumbs.length > 0
+      ? state.breadcrumbs[state.breadcrumbs.length - 1].name
+      : '';
+    var insideReports = /^דוחות/.test(currentName);
+    var show = state.pendingAutoChecks.length === 0 && state.breadcrumbs.length >= 4 && insideReports;
     dom.createVisit.hidden = !show;
     if (show) {
       dom.visitForm.hidden = true;
@@ -463,6 +482,9 @@
     }
     renderPhotos();
     updateUploadBtn();
+    // Focus the last added photo's name field
+    var lastInput = dom.photoList.querySelector('.photo-item:last-child .photo-item__name');
+    if (lastInput) lastInput.focus();
   }
 
   function removePhoto(index) {
@@ -501,6 +523,11 @@
         nameInput.addEventListener('input', function () {
           state.photos[idx].name = nameInput.value;
           updateUploadBtn();
+        });
+        nameInput.addEventListener('focus', function () {
+          if (/^תמונה \d+$/.test(nameInput.value)) {
+            nameInput.select();
+          }
         });
       })(index);
 
