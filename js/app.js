@@ -8,6 +8,8 @@
   var ROOT_NAME = 'תיקים לבקרה';
   var CREATE_FOLDER_WEBHOOK = 'https://hook.eu1.make.com/ryl1lrkm2tb9re6kgbdh1frud3ityhqy';
   var UPLOAD_WEBHOOK = 'https://hook.eu1.make.com/a9rz1tlo9t4q6ki8nlrx1qpr4teafimb';
+  var STORAGE_KEY = 'nisim_saved_location';
+  var STORAGE_TTL = 10 * 60 * 60 * 1000; // 10 hours
 
   // ============================================
   // State
@@ -60,6 +62,10 @@
     confirmVisitBtn: document.getElementById('confirm-visit-btn'),
     visitCreating: document.getElementById('visit-creating'),
     visitError: document.getElementById('visit-error'),
+    savedLocation: document.getElementById('saved-location'),
+    savedLocationPath: document.getElementById('saved-location-path'),
+    savedLocationBtn: document.getElementById('saved-location-btn'),
+    savedLocationChange: document.getElementById('saved-location-change'),
   };
 
   // ============================================
@@ -133,6 +139,73 @@
   }
 
   // ============================================
+  // Location Persistence
+  // ============================================
+  function saveLocation() {
+    var data = {
+      breadcrumbs: state.breadcrumbs,
+      targetFolder: state.targetFolder,
+      targetFolderExists: state.targetFolderExists,
+      savedAt: Date.now(),
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      // Storage full or unavailable — silently ignore
+    }
+  }
+
+  function loadSavedLocation() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (Date.now() - data.savedAt > STORAGE_TTL) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function showSavedLocationCard(saved) {
+    var path = saved.breadcrumbs.map(function (b) { return b.name; }).join(' / ');
+    if (saved.targetFolder && saved.targetFolder.name) {
+      path += ' / ' + saved.targetFolder.name;
+    }
+    dom.savedLocationPath.textContent = path;
+    dom.savedLocation.hidden = false;
+
+    // Hide everything else
+    dom.navBar.hidden = true;
+    dom.searchBox.hidden = true;
+    dom.folderList.innerHTML = '';
+    dom.loading.hidden = true;
+    dom.error.hidden = true;
+    dom.empty.hidden = true;
+    dom.targetFolder.hidden = true;
+    dom.uploadSection.hidden = true;
+    dom.createVisit.hidden = true;
+    dom.autoMsg.hidden = true;
+  }
+
+  function restoreSavedLocation(saved) {
+    dom.savedLocation.hidden = true;
+    state.breadcrumbs = saved.breadcrumbs;
+    state.targetFolder = saved.targetFolder;
+    state.targetFolderExists = saved.targetFolderExists;
+    state.pendingAutoChecks = [];
+    state.autoMessages = [];
+    state.searchQuery = '';
+
+    // Fetch the last breadcrumb folder to verify it still exists
+    var lastCrumb = state.breadcrumbs[state.breadcrumbs.length - 1];
+    fetchAndDisplay(lastCrumb.id);
+  }
+
+  // ============================================
   // Navigation
   // ============================================
   function loadRoot() {
@@ -142,6 +215,14 @@
     state.targetFolder = null;
     state.searchQuery = '';
     dom.searchInput.value = '';
+
+    // Check for saved location
+    var saved = loadSavedLocation();
+    if (saved && saved.breadcrumbs && saved.breadcrumbs.length > 1) {
+      showSavedLocationCard(saved);
+      return;
+    }
+
     fetchAndDisplay('root');
   }
 
@@ -206,6 +287,7 @@
           renderBreadcrumbs();
           updateSearchVisibility();
           updateCreateVisitVisibility();
+          if (state.breadcrumbs.length > 1) saveLocation();
           return;
         }
 
@@ -262,6 +344,7 @@
         updateSearchVisibility();
         showTargetFolder();
         updateCreateVisitVisibility();
+        if (state.breadcrumbs.length > 1) saveLocation();
       })
       .catch(function (err) {
         showLoading(false);
@@ -482,9 +565,17 @@
     }
     renderPhotos();
     updateUploadBtn();
-    // Focus the last added photo's name field
-    var lastInput = dom.photoList.querySelector('.photo-item:last-child .photo-item__name');
-    if (lastInput) lastInput.focus();
+    // Scroll to and highlight the last added photo's name field
+    var lastItem = dom.photoList.querySelector('.photo-item:last-child');
+    if (lastItem) {
+      lastItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      var lastInput = lastItem.querySelector('.photo-item__name');
+      if (lastInput) {
+        lastInput.classList.remove('photo-item__name--highlight');
+        void lastInput.offsetWidth; // force reflow to restart animation
+        lastInput.classList.add('photo-item__name--highlight');
+      }
+    }
   }
 
   function removePhoto(index) {
@@ -751,6 +842,21 @@
 
   dom.resultCloseBtn.addEventListener('click', function () {
     dom.uploadResult.hidden = true;
+  });
+
+  dom.savedLocationBtn.addEventListener('click', function () {
+    var saved = loadSavedLocation();
+    if (saved) {
+      restoreSavedLocation(saved);
+    } else {
+      dom.savedLocation.hidden = true;
+      fetchAndDisplay('root');
+    }
+  });
+
+  dom.savedLocationChange.addEventListener('click', function () {
+    dom.savedLocation.hidden = true;
+    fetchAndDisplay('root');
   });
 
   // ============================================

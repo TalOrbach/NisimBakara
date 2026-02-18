@@ -154,6 +154,7 @@ Folder creation + photo upload — built, deployed, live at https://nisim-bakara
 - [x] ~~Push to GitHub remote~~ → DONE: https://github.com/TalOrbach/NisimBakara
 - [x] ~~Phase 2: Folder creation~~ → DONE (Feb 17, 2026)
 - [x] ~~Phase 3: Photo upload~~ → DONE (Feb 17, 2026)
+- [ ] Photo name field: pulse-highlight animation not visible on mobile after adding photo. CSS animation is in place (`photo-item__name--highlight`) but doesn't render. Keyboard also won't auto-open due to mobile browser restrictions on programmatic `.focus()`. Current state: no focus, no animation — user taps the field manually. Low priority.
 - [ ] Phase 4: LocalStorage persistence (10-hour folder memory)
 - [ ] End-to-end testing of upload flow on live site (not yet tested with real photos)
 

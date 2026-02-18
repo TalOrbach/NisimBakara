@@ -20,6 +20,19 @@
     </header>
 
     <main class="main">
+        <!-- Saved location -->
+        <div id="saved-location" class="saved-location" hidden>
+            <div class="saved-location__card">
+                <div class="saved-location__icon">📁</div>
+                <div class="saved-location__info">
+                    <p class="saved-location__label">המשך מהמיקום האחרון:</p>
+                    <p id="saved-location-path" class="saved-location__path"></p>
+                </div>
+            </div>
+            <button id="saved-location-btn" class="btn btn--primary saved-location__btn" type="button">המשך</button>
+            <button id="saved-location-change" class="saved-location__change" type="button">בחר תיקיה אחרת</button>
+        </div>
+
         <!-- Back button + Breadcrumb navigation -->
         <div id="nav-bar" class="nav-bar" hidden>
             <button id="back-btn" class="btn btn--back" type="button" title="חזרה">

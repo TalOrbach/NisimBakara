@@ -464,6 +464,75 @@ ul {
 }
 
 /* ============================================
+   Saved Location
+   ============================================ */
+.saved-location {
+    background: var(--card);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    animation: slideDown 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow);
+}
+
+.saved-location__card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.saved-location__icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.saved-location__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.saved-location__label {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.saved-location__path {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-word;
+    direction: ltr;
+    unicode-bidi: plaintext;
+}
+
+.saved-location__btn {
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+.saved-location__change {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.5rem;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.saved-location__change:active {
+    color: var(--primary);
+}
+
+/* ============================================
    Target Folder
    ============================================ */
 .target-folder {
