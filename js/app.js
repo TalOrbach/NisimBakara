@@ -8,8 +8,12 @@
   var ROOT_NAME = 'תיקים לבקרה';
   var CREATE_FOLDER_WEBHOOK = 'https://hook.eu1.make.com/ryl1lrkm2tb9re6kgbdh1frud3ityhqy';
   var UPLOAD_WEBHOOK = 'https://hook.eu1.make.com/a9rz1tlo9t4q6ki8nlrx1qpr4teafimb';
+  var RENAME_WEBHOOK = 'https://hook.eu1.make.com/qf04b4h7g6is2e66f2hw7aa0gldttb38';
+  var DELETE_WEBHOOK = 'https://hook.eu1.make.com/yr8lyulehfnolt02ld682nohv5wzjxm3';
+  var THUMBNAIL_WEBHOOK = 'https://hook.eu1.make.com/td8xssina4mri2wal54ulj8wc91clddi';
   var STORAGE_KEY = 'nisim_saved_location';
   var STORAGE_TTL = 10 * 60 * 60 * 1000; // 10 hours
+  var UPLOAD_MAX_BYTES = 3.5 * 1024 * 1024; // ~3.5MB blob → ~4.7MB base64, under 5MB webhook limit
 
   // ============================================
   // State
@@ -105,31 +109,89 @@
       });
   }
 
-  function fileToBase64(file) {
+  function resizeImage(file) {
+    // Already small enough — send as-is
+    if (file.size <= UPLOAD_MAX_BYTES) {
+      return Promise.resolve(file);
+    }
+
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.width;
+        var h = img.height;
+
+        // Step 1: Convert to JPEG at full dimensions, high quality
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(img.src);
+
+        canvas.toBlob(function (jpegBlob) {
+          if (!jpegBlob) { reject(new Error('שגיאה בעיבוד תמונה')); return; }
+
+          // Step 2: If JPEG conversion alone is enough, done
+          if (jpegBlob.size <= UPLOAD_MAX_BYTES) {
+            resolve(jpegBlob);
+            return;
+          }
+
+          // Step 3: Scale dimensions based on JPEG size (not original file size)
+          var scale = Math.sqrt(UPLOAD_MAX_BYTES / jpegBlob.size);
+          var newW = Math.round(w * scale);
+          var newH = Math.round(h * scale);
+
+          canvas.width = newW;
+          canvas.height = newH;
+          canvas.getContext('2d').drawImage(img, 0, 0, newW, newH);
+
+          // Step 4: Export, reducing quality if still too large
+          var quality = 0.92;
+          (function tryExport() {
+            canvas.toBlob(function (blob) {
+              if (!blob) { reject(new Error('שגיאה בעיבוד תמונה')); return; }
+              if (blob.size <= UPLOAD_MAX_BYTES || quality <= 0.5) {
+                resolve(blob);
+              } else {
+                quality -= 0.1;
+                tryExport();
+              }
+            }, 'image/jpeg', quality);
+          })();
+        }, 'image/jpeg', 0.92);
+      };
+      img.onerror = function () { URL.revokeObjectURL(img.src); reject(new Error('שגיאה בטעינת תמונה')); };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  function blobToBase64(blob) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
       reader.onload = function () {
-        // result is "data:mime;base64,XXXX" — strip prefix
         var base64 = reader.result.split(',')[1];
         resolve(base64);
       };
       reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(blob);
     });
   }
 
   function uploadFile(folderId, fileName, file) {
-    return fileToBase64(file).then(function (base64Data) {
-      return fetch(UPLOAD_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          folderId: folderId,
-          fileName: fileName,
-          fileData: base64Data,
-        }),
-      });
-    })
+    return resizeImage(file)
+      .then(function (resized) { return blobToBase64(resized); })
+      .then(function (base64Data) {
+        return fetch(UPLOAD_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folderId: folderId,
+            fileName: fileName,
+            fileData: base64Data,
+          }),
+        });
+      })
       .then(function (response) {
         if (!response.ok) {
           throw new Error('שגיאה בהעלאת קובץ: ' + response.status);
@@ -710,7 +772,9 @@
           dom.progressText.textContent = 'מעלה ' + (index + 1) + ' מתוך ' + total + '...';
           dom.progressFill.style.width = ((index + 1) / total * 100) + '%';
 
-          var fileName = photo.name.trim() + photo.ext;
+          var wasResized = photo.file.size > UPLOAD_MAX_BYTES;
+          var ext = wasResized ? '.jpg' : photo.ext;
+          var fileName = photo.name.trim() + ext;
           uploadFile(targetId, fileName, photo.file)
             .then(function () {
               photo.status = 'done';
