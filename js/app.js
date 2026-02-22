@@ -72,6 +72,11 @@
     savedLocationPath: document.getElementById('saved-location-path'),
     savedLocationBtn: document.getElementById('saved-location-btn'),
     savedLocationChange: document.getElementById('saved-location-change'),
+    filesSection: document.getElementById('files-section'),
+    filesToggle: document.getElementById('files-toggle'),
+    filesToggleIcon: document.getElementById('files-toggle-icon'),
+    filesToggleText: document.getElementById('files-toggle-text'),
+    fileList: document.getElementById('file-list'),
   };
 
   // ============================================
