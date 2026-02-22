@@ -649,6 +649,42 @@
       li.appendChild(card);
       dom.fileList.appendChild(li);
     });
+
+    if (state.filesExpanded) {
+      loadThumbnails();
+    }
+  }
+
+  var thumbnailCache = {}; // { itemId: dataUrl }
+
+  function loadThumbnails() {
+    var thumbEls = dom.fileList.querySelectorAll('.file-card__thumb[data-item-id]');
+    thumbEls.forEach(function (el) {
+      var itemId = el.dataset.itemId;
+      if (!itemId) return;
+
+      if (thumbnailCache[itemId]) {
+        el.src = thumbnailCache[itemId];
+        el.classList.remove('file-card__thumb--loading');
+        return;
+      }
+
+      fetchThumbnail(itemId)
+        .then(function (data) {
+          // The thumbnail webhook returns Graph API JSON with a url field
+          var src = data.url || ('data:image/jpeg;base64,' + data.base64);
+          thumbnailCache[itemId] = src;
+          el.src = src;
+          el.classList.remove('file-card__thumb--loading');
+        })
+        .catch(function () {
+          // Replace with icon on failure
+          var icon = document.createElement('span');
+          icon.className = 'file-card__icon';
+          icon.textContent = '🖼️';
+          el.replaceWith(icon);
+        });
+    });
   }
 
   function enterEditMode(file, cardEl) {
