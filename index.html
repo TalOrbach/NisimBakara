@@ -75,15 +75,6 @@
         <!-- Folder list -->
         <ul id="folder-list" class="folder-list"></ul>
 
-        <!-- Files section (collapsible) -->
-        <div id="files-section" class="files-section" hidden>
-            <button id="files-toggle" class="files-section__toggle" type="button">
-                <span id="files-toggle-icon" class="files-section__chevron">◀</span>
-                <span id="files-toggle-text">קבצים</span>
-            </button>
-            <ul id="file-list" class="file-list"></ul>
-        </div>
-
         <!-- Target folder (תמונות) indicator -->
         <div id="target-folder" class="target-folder" hidden>
             <div class="target-folder__badge">תיקיית יעד</div>
@@ -114,6 +105,27 @@
                 <p id="result-text" class="upload-result__text"></p>
                 <button id="result-close-btn" class="btn btn--secondary" type="button">סגור</button>
             </div>
+        </div>
+
+        <!-- Files section (collapsible) -->
+        <div id="files-section" class="files-section" hidden>
+            <button id="files-toggle" class="files-section__toggle" type="button">
+                <span id="files-toggle-icon" class="files-section__chevron">◀</span>
+                <span id="files-toggle-text">קבצים</span>
+            </button>
+            <ul id="file-list" class="file-list"></ul>
+        </div>
+
+        <!-- Create דוחות ביקור folder -->
+        <div id="create-reports" class="create-visit" hidden>
+            <button id="create-reports-btn" class="btn btn--secondary" type="button">
+                + יצירת תיקיית דוחות ביקור
+            </button>
+            <div id="reports-creating" class="create-visit__creating" hidden>
+                <div class="loading__spinner loading__spinner--small"></div>
+                <span>יוצר תיקיה...</span>
+            </div>
+            <p id="reports-error" class="create-visit__error" hidden></p>
         </div>
 
         <!-- Create new visit -->

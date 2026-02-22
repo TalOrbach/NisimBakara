@@ -51,6 +51,10 @@
     targetFolder: document.getElementById('target-folder'),
     targetPath: document.getElementById('target-path'),
     targetNote: document.getElementById('target-note'),
+    createReports: document.getElementById('create-reports'),
+    createReportsBtn: document.getElementById('create-reports-btn'),
+    reportsCreating: document.getElementById('reports-creating'),
+    reportsError: document.getElementById('reports-error'),
     createVisit: document.getElementById('create-visit'),
     createVisitBtn: document.getElementById('create-visit-btn'),
     visitForm: document.getElementById('visit-form'),
@@ -279,7 +283,8 @@
 
   function showSavedLocationCard(saved) {
     var path = saved.breadcrumbs.map(function (b) { return b.name; }).join(' / ');
-    if (saved.targetFolder && saved.targetFolder.name) {
+    var lastCrumb = saved.breadcrumbs[saved.breadcrumbs.length - 1];
+    if (saved.targetFolder && saved.targetFolder.name && (!lastCrumb || lastCrumb.name !== saved.targetFolder.name)) {
       path += ' / ' + saved.targetFolder.name;
     }
     dom.savedLocationPath.textContent = path;
@@ -371,6 +376,8 @@
     state.photos = [];
     state.uploading = false;
     state.uploadTargetId = null;
+    dom.createReports.hidden = true;
+    dom.reportsError.hidden = true;
     dom.createVisit.hidden = true;
     dom.visitForm.hidden = true;
     dom.autoMsg.hidden = true;
@@ -382,41 +389,48 @@
         var files = items.filter(function (item) { return !item.folder; });
         state.currentItems = folders;
         state.currentFiles = files;
-        state.filesExpanded = folders.length === 0; // auto-expand if no subfolders
         showLoading(false);
+        if (state.breadcrumbs.length > 1) saveLocation();
+
+        // If we're inside a תמונות folder, set it as upload target
+        var currentCrumb = state.breadcrumbs[state.breadcrumbs.length - 1];
+        var isInPhotosFolder = currentCrumb && currentCrumb.name === 'תמונות';
+        state.filesExpanded = folders.length === 0 || isInPhotosFolder; // auto-expand in תמונות or when no subfolders
+        if (isInPhotosFolder) {
+          state.targetFolder = { name: currentCrumb.name, id: currentCrumb.id };
+          state.targetFolderExists = true;
+          state.uploadTargetId = currentCrumb.id;
+        }
 
         if (folders.length === 0) {
           // Check if we're inside a visit folder (תמונות will be created on first upload)
-          var currentName = state.breadcrumbs.length > 0
-            ? state.breadcrumbs[state.breadcrumbs.length - 1].name
-            : '';
-          if (/(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?\d+/.test(currentName)) {
-            state.targetFolder = { name: 'תמונות', id: state.breadcrumbs[state.breadcrumbs.length - 1].id, create: true };
+          var currentName = currentCrumb ? currentCrumb.name : '';
+          if (!state.targetFolder && /(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?\d+/.test(currentName)) {
+            state.targetFolder = { name: 'תמונות', id: currentCrumb.id, create: true };
             state.targetFolderExists = false;
-            showTargetFolder();
           }
-          if (files.length === 0) showEmpty();
+          showTargetFolder();
+          if (files.length === 0 && !state.targetFolder) showEmpty();
           renderBreadcrumbs();
           renderFiles();
           updateSearchVisibility();
           updateCreateVisitVisibility();
-          if (state.breadcrumbs.length > 1) saveLocation();
+          updateCreateReportsVisibility();
           return;
         }
 
-        // Check for תמונות
+        // Check for תמונות — auto-navigate into it
         var photosFolder = folders.find(function (f) { return f.name === 'תמונות'; });
         if (photosFolder) {
-          state.targetFolder = photosFolder;
-          state.targetFolderExists = true;
+          state.breadcrumbs.push({ name: photosFolder.name, id: photosFolder.id });
+          fetchAndDisplay(photosFolder.id);
+          return;
         } else {
           // Check if we're inside a visit folder (תמונות will be created on first upload)
-          var currentName = state.breadcrumbs.length > 0
-            ? state.breadcrumbs[state.breadcrumbs.length - 1].name
-            : '';
+          var currentName = currentCrumb ? currentCrumb.name : '';
           var isVisitFolder = /(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?\d+/.test(currentName);
           if (isVisitFolder) {
-            state.targetFolder = { name: 'תמונות', id: state.breadcrumbs[state.breadcrumbs.length - 1].id, create: true };
+            state.targetFolder = { name: 'תמונות', id: currentCrumb.id, create: true };
             state.targetFolderExists = false;
           }
         }
@@ -458,7 +472,7 @@
         updateSearchVisibility();
         showTargetFolder();
         updateCreateVisitVisibility();
-        if (state.breadcrumbs.length > 1) saveLocation();
+        updateCreateReportsVisibility();
       })
       .catch(function (err) {
         showLoading(false);
@@ -849,7 +863,10 @@
       return;
     }
     dom.targetFolder.hidden = false;
-    var path = state.breadcrumbs.map(function (b) { return b.name; }).join(' / ') + ' / תמונות';
+    var lastCrumb = state.breadcrumbs[state.breadcrumbs.length - 1];
+    var alreadyInPhotos = lastCrumb && lastCrumb.name === 'תמונות';
+    var path = state.breadcrumbs.map(function (b) { return b.name; }).join(' / ');
+    if (!alreadyInPhotos) path += ' / תמונות';
     dom.targetPath.textContent = path;
     dom.targetNote.textContent = state.targetFolderExists
       ? 'תמונות יועלו לתיקיה זו'
@@ -891,6 +908,22 @@
     if (show) {
       dom.visitForm.hidden = true;
     }
+  }
+
+  function updateCreateReportsVisibility() {
+    var currentName = state.breadcrumbs.length > 0
+      ? state.breadcrumbs[state.breadcrumbs.length - 1].name
+      : '';
+    // Show when: deep enough, not in דוחות/visit/תמונות, no דוחות subfolder exists, no pending auto-checks
+    var isReportsFolder = /^דוחות/.test(currentName);
+    var isVisitFolder = /(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?\d+/.test(currentName);
+    var isPhotosFolder = currentName === 'תמונות';
+    var hasDochot = state.currentItems.some(function (f) { return /^דוחות/.test(f.name); });
+    var show = state.pendingAutoChecks.length === 0
+      && state.breadcrumbs.length >= 3
+      && !isReportsFolder && !isVisitFolder && !isPhotosFolder
+      && !hasDochot;
+    dom.createReports.hidden = !show;
   }
 
   // ============================================
@@ -1171,6 +1204,28 @@
     }
   });
 
+  dom.createReportsBtn.addEventListener('click', function () {
+    var parentId = state.breadcrumbs[state.breadcrumbs.length - 1].id;
+
+    dom.createReportsBtn.hidden = true;
+    dom.reportsCreating.hidden = false;
+    dom.reportsError.hidden = true;
+
+    createFolder(parentId, 'דוחות ביקור')
+      .then(function (folder) {
+        // Navigate into the new folder
+        selectFolder(folder.id, folder.name);
+      })
+      .catch(function (err) {
+        dom.reportsError.textContent = err.message || 'שגיאה ביצירת תיקיה';
+        dom.reportsError.hidden = false;
+      })
+      .then(function () {
+        dom.createReportsBtn.hidden = false;
+        dom.reportsCreating.hidden = true;
+      });
+  });
+
   dom.createVisitBtn.addEventListener('click', function () {
     var name = generateVisitName();
     dom.visitName.value = name;
@@ -1212,6 +1267,7 @@
         dom.folderList.innerHTML = '';
         dom.empty.hidden = true;
         showTargetFolder();
+        saveLocation();
       })
       .catch(function (err) {
         dom.visitError.textContent = err.message || 'שגיאה ביצירת תיקיה';
