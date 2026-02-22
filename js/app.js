@@ -21,6 +21,8 @@
   var state = {
     breadcrumbs: [],        // [{name, id}]
     currentItems: [],       // folders at current level
+    currentFiles: [],       // non-folder items at current level
+    filesExpanded: false,   // whether files section is open
     pendingAutoChecks: [],  // ['bikort', 'dochot']
     autoMessages: [],       // accumulated auto-selection messages
     targetFolder: null,     // תמונות folder if found
@@ -75,7 +77,7 @@
   // ============================================
   // API
   // ============================================
-  function fetchFolders(folderId) {
+  function fetchItems(folderId) {
     return fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -90,8 +92,7 @@
       .then(function (data) {
         // Handle both raw array and { value: [...] } responses
         var items = Array.isArray(data) ? data : (data.value || []);
-        // Keep only folders
-        return items.filter(function (item) { return item.folder; });
+        return items;
       });
   }
 
@@ -330,9 +331,13 @@
     dom.visitForm.hidden = true;
     dom.autoMsg.hidden = true;
 
-    fetchFolders(folderId)
-      .then(function (folders) {
+    fetchItems(folderId)
+      .then(function (items) {
+        var folders = items.filter(function (item) { return item.folder; });
+        var files = items.filter(function (item) { return !item.folder; });
         state.currentItems = folders;
+        state.currentFiles = files;
+        state.filesExpanded = folders.length === 0; // auto-expand if no subfolders
         showLoading(false);
 
         if (folders.length === 0) {
