@@ -727,7 +727,51 @@
   }
 
   function enterDeleteMode(file, cardEl, fileIndex) {
-    // Implemented in Task 8
+    var actionsEl = cardEl.querySelector('.file-card__actions');
+
+    // Replace actions with confirmation
+    actionsEl.innerHTML = '';
+    var confirm = document.createElement('span');
+    confirm.className = 'file-card__confirm';
+    confirm.textContent = 'מחיקה?';
+
+    var yesBtn = document.createElement('button');
+    yesBtn.className = 'file-card__confirm-btn file-card__confirm-btn--yes';
+    yesBtn.type = 'button';
+    yesBtn.textContent = '✓';
+
+    var noBtn = document.createElement('button');
+    noBtn.className = 'file-card__confirm-btn file-card__confirm-btn--no';
+    noBtn.type = 'button';
+    noBtn.textContent = '✕';
+
+    actionsEl.appendChild(confirm);
+    actionsEl.appendChild(yesBtn);
+    actionsEl.appendChild(noBtn);
+
+    noBtn.addEventListener('click', function () {
+      renderFiles(); // reset
+    });
+
+    yesBtn.addEventListener('click', function () {
+      // Show spinner
+      actionsEl.innerHTML = '';
+      var spinner = document.createElement('span');
+      spinner.className = 'file-card__spinner';
+      actionsEl.appendChild(spinner);
+
+      deleteFile(file.id)
+        .then(function () {
+          state.currentFiles.splice(fileIndex, 1);
+          renderFiles();
+        })
+        .catch(function (err) {
+          renderFiles(); // reset to normal state
+          // Brief error flash on the card
+          cardEl.style.borderColor = 'var(--error)';
+          setTimeout(function () { cardEl.style.borderColor = ''; }, 2000);
+        });
+    });
   }
 
   // ============================================
