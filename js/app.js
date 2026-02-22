@@ -374,6 +374,7 @@
     dom.createVisit.hidden = true;
     dom.visitForm.hidden = true;
     dom.autoMsg.hidden = true;
+    dom.filesSection.hidden = true;
 
     fetchItems(folderId)
       .then(function (items) {
@@ -396,6 +397,7 @@
           }
           showEmpty();
           renderBreadcrumbs();
+          renderFiles();
           updateSearchVisibility();
           updateCreateVisitVisibility();
           if (state.breadcrumbs.length > 1) saveLocation();
@@ -452,6 +454,7 @@
 
         renderBreadcrumbs();
         renderFolders();
+        renderFiles();
         updateSearchVisibility();
         showTargetFolder();
         updateCreateVisitVisibility();
@@ -467,6 +470,24 @@
   // ============================================
   // Rendering
   // ============================================
+  var FILE_ICONS = {
+    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', bmp: '🖼️', webp: '🖼️', heic: '🖼️',
+    pdf: '📄', doc: '📄', docx: '📄', txt: '📄', rtf: '📄',
+    xls: '📊', xlsx: '📊', csv: '📊',
+    ppt: '📊', pptx: '📊',
+    zip: '📦', rar: '📦', '7z': '📦',
+  };
+
+  function getFileIcon(fileName) {
+    var ext = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+    return FILE_ICONS[ext] || '📄';
+  }
+
+  function isImageFile(fileName) {
+    var ext = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'heic'].indexOf(ext) !== -1;
+  }
+
   function renderBreadcrumbs() {
     dom.navBar.hidden = state.breadcrumbs.length <= 1;
     dom.breadcrumbs.innerHTML = '';
@@ -549,6 +570,93 @@
       li.appendChild(btn);
       dom.folderList.appendChild(li);
     });
+  }
+
+  function renderFiles() {
+    if (state.currentFiles.length === 0) {
+      dom.filesSection.hidden = true;
+      return;
+    }
+
+    dom.filesSection.hidden = false;
+    dom.filesToggleText.textContent = 'קבצים (' + state.currentFiles.length + ')';
+    dom.filesToggleIcon.className = 'files-section__chevron' +
+      (state.filesExpanded ? ' files-section__chevron--open' : '');
+    dom.fileList.hidden = !state.filesExpanded;
+    dom.fileList.innerHTML = '';
+
+    if (!state.filesExpanded) return;
+
+    var query = state.searchQuery.trim().toLowerCase();
+
+    state.currentFiles.forEach(function (file, index) {
+      if (query && !file.name.toLowerCase().includes(query)) return;
+
+      var li = document.createElement('li');
+      var card = document.createElement('div');
+      card.className = 'file-card';
+      card.dataset.index = index;
+
+      // Icon or thumbnail placeholder
+      var inPhotosFolder = state.breadcrumbs.length > 0 &&
+        state.breadcrumbs[state.breadcrumbs.length - 1].name === 'תמונות';
+      if (inPhotosFolder && isImageFile(file.name)) {
+        var thumb = document.createElement('img');
+        thumb.className = 'file-card__thumb file-card__thumb--loading';
+        thumb.alt = '';
+        thumb.src = ''; // will be loaded lazily
+        thumb.dataset.itemId = file.id;
+        card.appendChild(thumb);
+      } else {
+        var icon = document.createElement('span');
+        icon.className = 'file-card__icon';
+        icon.textContent = getFileIcon(file.name);
+        card.appendChild(icon);
+      }
+
+      // Filename
+      var name = document.createElement('span');
+      name.className = 'file-card__name';
+      name.textContent = file.name;
+      card.appendChild(name);
+
+      // Action buttons
+      var actions = document.createElement('span');
+      actions.className = 'file-card__actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.className = 'file-card__action-btn';
+      editBtn.type = 'button';
+      editBtn.textContent = '✏️';
+      editBtn.title = 'שנה שם';
+      (function (f, cardEl) {
+        editBtn.addEventListener('click', function () { enterEditMode(f, cardEl); });
+      })(file, card);
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.className = 'file-card__action-btn file-card__action-btn--danger';
+      deleteBtn.type = 'button';
+      deleteBtn.textContent = '🗑️';
+      deleteBtn.title = 'מחק';
+      (function (f, cardEl, idx) {
+        deleteBtn.addEventListener('click', function () { enterDeleteMode(f, cardEl, idx); });
+      })(file, card, index);
+
+      actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
+      card.appendChild(actions);
+
+      li.appendChild(card);
+      dom.fileList.appendChild(li);
+    });
+  }
+
+  function enterEditMode(file, cardEl) {
+    // Implemented in Task 7
+  }
+
+  function enterDeleteMode(file, cardEl, fileIndex) {
+    // Implemented in Task 8
   }
 
   // ============================================
@@ -871,6 +979,12 @@
   dom.searchInput.addEventListener('input', function () {
     state.searchQuery = dom.searchInput.value;
     renderFolders();
+    renderFiles();
+  });
+
+  dom.filesToggle.addEventListener('click', function () {
+    state.filesExpanded = !state.filesExpanded;
+    renderFiles();
   });
 
   dom.backBtn.addEventListener('click', function () {
