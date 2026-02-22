@@ -1069,8 +1069,26 @@
             state.uploading = false;
             dom.uploadProgress.hidden = true;
             showUploadResult(done, failed, total);
+
+            // Remove successfully uploaded photos, keep failed ones for retry
+            state.photos = state.photos.filter(function (p) { return p.status === 'error'; });
             renderPhotos();
             updateUploadBtn();
+
+            // Refresh file listing to show newly uploaded files
+            var currentFolderId = state.uploadTargetId ||
+              (state.breadcrumbs.length > 0 ? state.breadcrumbs[state.breadcrumbs.length - 1].id : null);
+            if (currentFolderId) {
+              fetchItems(currentFolderId)
+                .then(function (items) {
+                  state.currentFiles = items.filter(function (item) { return !item.folder; });
+                  state.filesExpanded = true; // expand to show new files
+                  renderFiles();
+                })
+                .catch(function () {
+                  // Silent failure — not critical
+                });
+            }
             return;
           }
 
