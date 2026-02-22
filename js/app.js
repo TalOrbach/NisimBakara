@@ -652,7 +652,78 @@
   }
 
   function enterEditMode(file, cardEl) {
-    // Implemented in Task 7
+    var nameEl = cardEl.querySelector('.file-card__name');
+    var actionsEl = cardEl.querySelector('.file-card__actions');
+
+    // Replace name span with input
+    var input = document.createElement('input');
+    input.className = 'file-card__edit-input';
+    input.type = 'text';
+    input.value = file.name;
+    nameEl.replaceWith(input);
+    input.focus();
+    // Select filename without extension
+    var dotIndex = file.name.lastIndexOf('.');
+    if (dotIndex > 0) {
+      input.setSelectionRange(0, dotIndex);
+    } else {
+      input.select();
+    }
+
+    // Replace actions with save/cancel
+    actionsEl.innerHTML = '';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'file-card__confirm-btn file-card__confirm-btn--yes';
+    saveBtn.type = 'button';
+    saveBtn.textContent = '✓';
+    saveBtn.title = 'שמור';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.className = 'file-card__confirm-btn file-card__confirm-btn--no';
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = '✕';
+    cancelBtn.title = 'ביטול';
+
+    actionsEl.appendChild(saveBtn);
+    actionsEl.appendChild(cancelBtn);
+
+    cancelBtn.addEventListener('click', function () {
+      renderFiles(); // re-render to reset
+    });
+
+    saveBtn.addEventListener('click', function () {
+      var newName = input.value.trim();
+      if (!newName || newName === file.name) {
+        renderFiles();
+        return;
+      }
+
+      // Show spinner
+      actionsEl.innerHTML = '';
+      var spinner = document.createElement('span');
+      spinner.className = 'file-card__spinner';
+      actionsEl.appendChild(spinner);
+      input.disabled = true;
+
+      renameFile(file.id, newName)
+        .then(function () {
+          file.name = newName;
+          renderFiles();
+        })
+        .catch(function (err) {
+          // Show error inline
+          input.disabled = false;
+          actionsEl.innerHTML = '';
+          actionsEl.appendChild(saveBtn);
+          actionsEl.appendChild(cancelBtn);
+          var errorEl = document.createElement('div');
+          errorEl.className = 'file-card__error';
+          errorEl.textContent = err.message;
+          cardEl.parentNode.appendChild(errorEl);
+          setTimeout(function () { if (errorEl.parentNode) errorEl.parentNode.removeChild(errorEl); }, 3000);
+        });
+    });
   }
 
   function enterDeleteMode(file, cardEl, fileIndex) {
