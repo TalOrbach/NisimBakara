@@ -395,7 +395,7 @@
             state.targetFolderExists = false;
             showTargetFolder();
           }
-          showEmpty();
+          if (files.length === 0) showEmpty();
           renderBreadcrumbs();
           renderFiles();
           updateSearchVisibility();
