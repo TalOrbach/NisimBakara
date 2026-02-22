@@ -201,6 +201,45 @@
       });
   }
 
+  function renameFile(itemId, newName) {
+    return fetch(RENAME_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: itemId, newName: newName }),
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          if (response.status === 409) throw new Error('שם קובץ כבר קיים');
+          throw new Error('שגיאה בשינוי שם: ' + response.status);
+        }
+        return response.json();
+      });
+  }
+
+  function deleteFile(itemId) {
+    return fetch(DELETE_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: itemId }),
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('שגיאה במחיקת קובץ: ' + response.status);
+        return response.json();
+      });
+  }
+
+  function fetchThumbnail(itemId) {
+    return fetch(THUMBNAIL_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: itemId }),
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('שגיאה בטעינת תמונה ממוזערת');
+        return response.json();
+      });
+  }
+
   // ============================================
   // Location Persistence
   // ============================================
