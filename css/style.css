@@ -871,6 +871,209 @@ ul {
 }
 
 /* ============================================
+   Files Section (collapsible)
+   ============================================ */
+.files-section {
+    margin-top: 0.75rem;
+}
+
+.files-section__toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.files-section__toggle:active {
+    background: var(--primary-light);
+}
+
+.files-section__chevron {
+    font-size: 0.625rem;
+    transition: transform var(--transition);
+    display: inline-block;
+}
+
+.files-section__chevron--open {
+    transform: rotate(-90deg);
+}
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* ============================================
+   File Card
+   ============================================ */
+.file-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition);
+    animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.file-card__icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.file-card__thumb {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    background: var(--border-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.file-card__thumb--loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.file-card__name {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+    font-weight: 500;
+    text-align: right;
+}
+
+.file-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.file-card__action-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: none;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background var(--transition);
+    color: var(--text-secondary);
+}
+
+.file-card__action-btn:active {
+    background: var(--primary-light);
+}
+
+.file-card__action-btn--danger:active {
+    background: var(--error-light);
+    color: var(--error);
+}
+
+/* Inline edit mode */
+.file-card__edit-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.375rem 0.5rem;
+    border: 1.5px solid var(--primary);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--text);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--primary-glow);
+    direction: rtl;
+}
+
+/* Inline delete confirmation */
+.file-card__confirm {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--error);
+    font-weight: 500;
+}
+
+.file-card__confirm-btn {
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid;
+    background: none;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all var(--transition);
+}
+
+.file-card__confirm-btn--yes {
+    color: var(--error);
+    border-color: var(--error);
+}
+
+.file-card__confirm-btn--yes:active {
+    background: var(--error);
+    color: white;
+}
+
+.file-card__confirm-btn--no {
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+
+.file-card__confirm-btn--no:active {
+    background: var(--border-light);
+}
+
+/* Inline error message */
+.file-card__error {
+    font-size: 0.75rem;
+    color: var(--error);
+    font-weight: 500;
+    margin-top: 0.25rem;
+    padding: 0 1rem;
+}
+
+/* Spinner for in-progress operations */
+.file-card__spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+/* ============================================
    Responsive
    ============================================ */
 @media (min-width: 640px) {
