@@ -61,6 +61,7 @@
     visitName: document.getElementById('visit-name'),
     uploadSection: document.getElementById('upload-section'),
     photoInput: document.getElementById('photo-input'),
+    cameraInput: document.getElementById('camera-input'),
     photoList: document.getElementById('photo-list'),
     uploadBtn: document.getElementById('upload-btn'),
     uploadProgress: document.getElementById('upload-progress'),
@@ -131,18 +132,27 @@
         var w = img.width;
         var h = img.height;
 
-        // Step 1: Convert to JPEG at full dimensions, high quality
+        // Android Chrome limits canvas to ~16MP — scale down first if needed
+        var MAX_PIXELS = 16000000;
+        var pixels = w * h;
+        if (pixels > MAX_PIXELS) {
+          var pixelScale = Math.sqrt(MAX_PIXELS / pixels);
+          w = Math.round(w * pixelScale);
+          h = Math.round(h * pixelScale);
+        }
+
+        // Step 1: Convert to JPEG, high quality
         var canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(img.src);
 
         canvas.toBlob(function (jpegBlob) {
           if (!jpegBlob) { reject(new Error('שגיאה בעיבוד תמונה')); return; }
 
           // Step 2: If JPEG conversion alone is enough, done
           if (jpegBlob.size <= UPLOAD_MAX_BYTES) {
+            URL.revokeObjectURL(img.src);
             resolve(jpegBlob);
             return;
           }
@@ -155,6 +165,7 @@
           canvas.width = newW;
           canvas.height = newH;
           canvas.getContext('2d').drawImage(img, 0, 0, newW, newH);
+          URL.revokeObjectURL(img.src);
 
           // Step 4: Export, reducing quality if still too large
           var quality = 0.92;
@@ -188,8 +199,17 @@
     });
   }
 
+  function convertHeicIfNeeded(file) {
+    var name = (file.name || '').toLowerCase();
+    var isHeic = name.endsWith('.heic') || name.endsWith('.heif') ||
+      file.type === 'image/heic' || file.type === 'image/heif';
+    if (!isHeic || typeof heic2any === 'undefined') return Promise.resolve(file);
+    return heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+  }
+
   function uploadFile(folderId, fileName, file) {
-    return resizeImage(file)
+    return convertHeicIfNeeded(file)
+      .then(function (converted) { return resizeImage(converted); })
       .then(function (resized) { return blobToBase64(resized); })
       .then(function (base64Data) {
         return fetch(UPLOAD_WEBHOOK, {
@@ -954,17 +974,61 @@
   // ============================================
   // Photo Management
   // ============================================
+  function getNextPhotoNumber() {
+    var maxNum = 0;
+    // Check existing files in folder
+    state.currentFiles.forEach(function (f) {
+      var match = f.name.match(/^תמונה (\d+)/);
+      if (match) {
+        var n = parseInt(match[1], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    // Check photos already queued for upload
+    state.photos.forEach(function (p) {
+      var match = p.name.match(/^תמונה (\d+)$/);
+      if (match) {
+        var n = parseInt(match[1], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    return maxNum + 1;
+  }
+
   function addPhotos(files) {
+    dom.uploadResult.hidden = true;
+    var nextNum = getNextPhotoNumber();
+    var conversions = [];
     for (var i = 0; i < files.length; i++) {
-      var file = files[i];
-      var ext = file.name.substring(file.name.lastIndexOf('.'));
-      state.photos.push({
-        file: file,
-        name: 'תמונה ' + (state.photos.length + 1),
-        ext: ext,
-        status: 'pending',
-        thumbUrl: URL.createObjectURL(file),
-      });
+      (function (file, idx) {
+        var ext = file.name.substring(file.name.lastIndexOf('.'));
+        var isHeic = /\.(heic|heif)$/i.test(ext);
+        var photo = {
+          file: file,
+          name: 'תמונה ' + (nextNum + idx),
+          ext: ext,
+          status: isHeic ? 'converting' : 'pending',
+          thumbUrl: isHeic ? '' : URL.createObjectURL(file),
+        };
+        state.photos.push(photo);
+        if (isHeic && typeof heic2any !== 'undefined') {
+          conversions.push(
+            heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+              .then(function (jpegBlob) {
+                photo.thumbUrl = URL.createObjectURL(jpegBlob);
+                photo.status = 'pending';
+                renderPhotos();
+                updateUploadBtn();
+              })
+              .catch(function () {
+                photo.thumbUrl = URL.createObjectURL(file);
+                photo.status = 'pending';
+                renderPhotos();
+                updateUploadBtn();
+              })
+          );
+        }
+      })(files[i], i);
     }
     renderPhotos();
     updateUploadBtn();
@@ -1001,11 +1065,18 @@
       li.className = 'photo-item';
       if (photo.status === 'error') li.className += ' photo-item--error';
       if (photo.status === 'done') li.className += ' photo-item--success';
+      if (photo.status === 'converting') li.className += ' photo-item--converting';
 
-      var thumb = document.createElement('img');
-      thumb.className = 'photo-item__thumb';
-      thumb.src = photo.thumbUrl;
-      thumb.alt = '';
+      var thumb;
+      if (photo.thumbUrl) {
+        thumb = document.createElement('img');
+        thumb.className = 'photo-item__thumb';
+        thumb.src = photo.thumbUrl;
+        thumb.alt = '';
+      } else {
+        thumb = document.createElement('div');
+        thumb.className = 'photo-item__thumb photo-item__thumb--loading';
+      }
 
       var nameInput = document.createElement('input');
       nameInput.className = 'photo-item__name';
@@ -1054,7 +1125,8 @@
   function updateUploadBtn() {
     var hasPhotos = state.photos.length > 0;
     var allNamed = state.photos.every(function (p) { return p.name.trim() !== ''; });
-    dom.uploadBtn.disabled = !hasPhotos || !allNamed || state.uploading;
+    var anyConverting = state.photos.some(function (p) { return p.status === 'converting'; });
+    dom.uploadBtn.disabled = !hasPhotos || !allNamed || state.uploading || anyConverting;
     dom.uploadBtn.textContent = hasPhotos
       ? 'העלאה (' + state.photos.length + ' תמונות)'
       : 'העלאה';
@@ -1097,44 +1169,18 @@
         var done = 0;
         var failed = 0;
 
-        function uploadNext(index) {
-          if (index >= total) {
-            state.uploading = false;
-            dom.uploadProgress.hidden = true;
-            showUploadResult(done, failed, total);
+        // Mark all as uploading and fire all requests in parallel
+        state.photos.forEach(function (photo) { photo.status = 'uploading'; });
+        renderPhotos();
+        dom.progressText.textContent = 'מעלה ' + total + ' תמונות...';
+        dom.progressFill.style.width = '0%';
 
-            // Remove successfully uploaded photos, keep failed ones for retry
-            state.photos = state.photos.filter(function (p) { return p.status === 'error'; });
-            renderPhotos();
-            updateUploadBtn();
-
-            // Refresh file listing to show newly uploaded files
-            var currentFolderId = state.uploadTargetId ||
-              (state.breadcrumbs.length > 0 ? state.breadcrumbs[state.breadcrumbs.length - 1].id : null);
-            if (currentFolderId) {
-              fetchItems(currentFolderId)
-                .then(function (items) {
-                  state.currentFiles = items.filter(function (item) { return !item.folder; });
-                  state.filesExpanded = true; // expand to show new files
-                  renderFiles();
-                })
-                .catch(function () {
-                  // Silent failure — not critical
-                });
-            }
-            return;
-          }
-
-          var photo = state.photos[index];
-          photo.status = 'uploading';
-          renderPhotos();
-          dom.progressText.textContent = 'מעלה ' + (index + 1) + ' מתוך ' + total + '...';
-          dom.progressFill.style.width = ((index + 1) / total * 100) + '%';
-
+        var uploads = state.photos.map(function (photo) {
+          var isHeic = /\.(heic|heif)$/i.test(photo.ext);
           var wasResized = photo.file.size > UPLOAD_MAX_BYTES;
-          var ext = wasResized ? '.jpg' : photo.ext;
+          var ext = (wasResized || isHeic) ? '.jpg' : photo.ext;
           var fileName = photo.name.trim() + ext;
-          uploadFile(targetId, fileName, photo.file)
+          return uploadFile(targetId, fileName, photo.file)
             .then(function () {
               photo.status = 'done';
               done++;
@@ -1144,11 +1190,35 @@
               failed++;
             })
             .then(function () {
-              uploadNext(index + 1);
+              dom.progressFill.style.width = ((done + failed) / total * 100) + '%';
+              dom.progressText.textContent = (done + failed) + ' מתוך ' + total + ' הושלמו';
+              renderPhotos();
             });
-        }
+        });
 
-        uploadNext(0);
+        return Promise.all(uploads).then(function () {
+          state.uploading = false;
+          dom.uploadProgress.hidden = true;
+          showUploadResult(done, failed, total);
+
+          // Remove successfully uploaded photos, keep failed ones for retry
+          state.photos = state.photos.filter(function (p) { return p.status === 'error'; });
+          renderPhotos();
+          updateUploadBtn();
+
+          // Refresh file listing to show newly uploaded files
+          var currentFolderId = state.uploadTargetId ||
+            (state.breadcrumbs.length > 0 ? state.breadcrumbs[state.breadcrumbs.length - 1].id : null);
+          if (currentFolderId) {
+            fetchItems(currentFolderId)
+              .then(function (items) {
+                state.currentFiles = items.filter(function (item) { return !item.folder; });
+                state.filesExpanded = true;
+                renderFiles();
+              })
+              .catch(function () {});
+          }
+        });
       })
       .catch(function (err) {
         state.uploading = false;
@@ -1164,7 +1234,7 @@
   function showUploadResult(done, failed, total) {
     dom.uploadResult.hidden = false;
     if (failed === 0) {
-      dom.resultText.textContent = 'כל ' + total + ' התמונות הועלו בהצלחה!';
+      dom.resultText.textContent = 'הועלו בהצלחה ' + total + ' תמונות!';
       dom.resultText.className = 'upload-result__text upload-result__text--success';
     } else if (done === 0) {
       dom.resultText.textContent = 'ההעלאה נכשלה. נסה שוב.';
@@ -1289,7 +1359,14 @@
     if (dom.photoInput.files.length > 0) {
       addPhotos(dom.photoInput.files);
     }
-    dom.photoInput.value = ''; // allow re-selecting same files
+    dom.photoInput.value = '';
+  });
+
+  dom.cameraInput.addEventListener('change', function () {
+    if (dom.cameraInput.files.length > 0) {
+      addPhotos(dom.cameraInput.files);
+    }
+    dom.cameraInput.value = '';
   });
 
   dom.resultCloseBtn.addEventListener('click', function () {
