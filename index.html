@@ -145,6 +145,12 @@
             <div id="visit-form" class="create-visit__form" hidden>
                 <label for="visit-name" class="create-visit__label">שם התיקיה שתיווצר:</label>
                 <input type="text" id="visit-name" class="create-visit__input" dir="rtl">
+                <div id="visit-copy-prompt" class="copy-prompt" hidden>
+                    <p class="copy-prompt__text">מאיזה ביקור להעתיק דוחות?</p>
+                    <button id="copy-choice-number" class="btn btn--secondary copy-prompt__btn" type="button"></button>
+                    <button id="copy-choice-date" class="btn btn--secondary copy-prompt__btn" type="button"></button>
+                    <button id="copy-skip" class="copy-prompt__skip" type="button">דלג על העתקה</button>
+                </div>
                 <button id="confirm-visit-btn" class="btn btn--primary" type="button">צור תיקיה</button>
                 <div id="visit-creating" class="create-visit__creating" hidden>
                     <div class="loading__spinner loading__spinner--small"></div>

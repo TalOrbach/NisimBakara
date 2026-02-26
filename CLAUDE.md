@@ -40,10 +40,10 @@ A mobile-friendly web form for construction site inspectors to upload photos dir
    - Lazy-load folder browser via webhook
    - Webhook URL: `https://hook.eu1.make.com/9jkw4vo5taer3ewajbu6t1c5tvrkgs2k`
    - Input: `{"folderId": "root"}` for top-level, `{"folderId": "<driveItemId>"}` for subfolders
-   - Output: Graph API JSON with `name`, `id`, `folder` fields
+   - Output: Graph API JSON with `name`, `id`, `folder`, `createdDateTime` fields
    - Modules: Webhook trigger (2) → SharePoint "Make an API Call" (4) → Webhook response (6)
    - URL formula uses `if(2.folderId = "root"; ...)` to route between root path and item-by-ID path
-   - Query params: `$select=name,id,folder&$top=999`
+   - Query params: `$select=name,id,folder,createdDateTime&$top=999`
 2. **Create SharePoint Folder** (DONE) - Scenario 4509894, ACTIVE
    - Webhook URL: `https://hook.eu1.make.com/ryl1lrkm2tb9re6kgbdh1frud3ityhqy`
    - Hook ID: 2503244
@@ -56,6 +56,12 @@ A mobile-friendly web form for construction site inspectors to upload photos dir
    - Input: `{"folderId": "<driveItemId>", "fileName": "<name>"}` + binary file data
    - Graph API: `PUT /drive/items/{folderId}:/{fileName}:/content`
    - Modules: Webhook trigger (2) → SharePoint API call (4) → Webhook response (6)
+4. **Copy File in SharePoint** (DONE) - Scenario 4605878, ACTIVE
+   - Webhook URL: `https://hook.eu1.make.com/27ac1v61hgka3lekm4hdulxxug6lrk4v`
+   - Hook ID: 2548828
+   - Input: `{"itemId": "<sourceFileId>", "targetFolderId": "<driveItemId>", "fileName": "<name>"}`
+   - Graph API: GET /drive/items/{itemId}/content (download) → PUT /drive/items/{targetFolderId}:/{fileName}:/content (upload)
+   - Modules: Webhook trigger (2) → SharePoint download (4) → SharePoint upload (5) → Webhook response (6)
 
 ## Folder Structure Storage
 **Chosen approach:** Lazy-load on demand via Make.com webhook (no storage needed)

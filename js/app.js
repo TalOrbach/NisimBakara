@@ -11,6 +11,7 @@
   var RENAME_WEBHOOK = 'https://hook.eu1.make.com/qf04b4h7g6is2e66f2hw7aa0gldttb38';
   var DELETE_WEBHOOK = 'https://hook.eu1.make.com/yr8lyulehfnolt02ld682nohv5wzjxm3';
   var THUMBNAIL_WEBHOOK = 'https://hook.eu1.make.com/td8xssina4mri2wal54ulj8wc91clddi';
+  var COPY_FILE_WEBHOOK = 'https://hook.eu1.make.com/27ac1v61hgka3lekm4hdulxxug6lrk4v';
   var STORAGE_KEY = 'nisim_saved_location';
   var STORAGE_TTL = 10 * 60 * 60 * 1000; // 10 hours
   var UPLOAD_MAX_BYTES = 3.5 * 1024 * 1024; // ~3.5MB blob → ~4.7MB base64, under 5MB webhook limit
@@ -30,6 +31,7 @@
     photos: [],           // [{file, name, ext, status, thumbUrl}] — status: pending|uploading|done|error
     uploading: false,
     uploadTargetId: null, // driveItemId of the folder to upload into
+    previousVisit: null,  // folder object of detected previous visit for file copy
   };
 
   // ============================================
@@ -82,6 +84,10 @@
     filesToggleIcon: document.getElementById('files-toggle-icon'),
     filesToggleText: document.getElementById('files-toggle-text'),
     fileList: document.getElementById('file-list'),
+    visitCopyPrompt: document.getElementById('visit-copy-prompt'),
+    copyChoiceNumber: document.getElementById('copy-choice-number'),
+    copyChoiceDate: document.getElementById('copy-choice-date'),
+    copySkip: document.getElementById('copy-skip'),
   };
 
   // ============================================
@@ -269,6 +275,18 @@
       });
   }
 
+  function copyFile(itemId, targetFolderId, fileName) {
+    return fetch(COPY_FILE_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: itemId, targetFolderId: targetFolderId, fileName: fileName }),
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('שגיאה בהעתקת קובץ: ' + response.status);
+        return response.json();
+      });
+  }
+
   // ============================================
   // Location Persistence
   // ============================================
@@ -367,6 +385,7 @@
       state.autoMessages = [];
     }
 
+    state.skipAutoNav = false;
     state.targetFolder = null;
     state.searchQuery = '';
     dom.searchInput.value = '';
@@ -379,6 +398,7 @@
     state.breadcrumbs = state.breadcrumbs.slice(0, index + 1);
     state.pendingAutoChecks = [];
     state.autoMessages = [];
+    state.skipAutoNav = true;
     state.targetFolder = null;
     state.searchQuery = '';
     dom.searchInput.value = '';
@@ -439,9 +459,9 @@
           return;
         }
 
-        // Check for תמונות — auto-navigate into it
+        // Check for תמונות — auto-navigate into it (unless user navigated back)
         var photosFolder = folders.find(function (f) { return f.name === 'תמונות'; });
-        if (photosFolder) {
+        if (photosFolder && !state.skipAutoNav) {
           state.breadcrumbs.push({ name: photosFolder.name, id: photosFolder.id });
           fetchAndDisplay(photosFolder.id);
           return;
@@ -468,17 +488,26 @@
               fetchAndDisplay(match.id);
               return;
             }
-          } else if (check === 'dochot') {
-            state.pendingAutoChecks.shift();
-            var matches = folders.filter(function (f) { return f.name.startsWith('דוחות'); });
-            if (matches.length === 1) {
-              state.autoMessages.push(matches[0].name);
-              state.breadcrumbs.push({ name: matches[0].name, id: matches[0].id });
-              fetchAndDisplay(matches[0].id);
-              return;
-            }
           }
         }
+
+        // Auto-select דוחות if inside בקרת ביצוע (at any depth) and there's exactly one match
+        var insideBikort = state.breadcrumbs.some(function (b) { return b.name === 'בקרת ביצוע'; });
+        if (insideBikort && !state.skipAutoNav) {
+          var dochotMatches = folders.filter(function (f) { return f.name.startsWith('דוחות'); });
+          if (dochotMatches.length === 1) {
+            state.autoMessages.push(dochotMatches[0].name);
+            state.breadcrumbs.push({ name: dochotMatches[0].name, id: dochotMatches[0].id });
+            // Clear the dochot pending check if it's still queued
+            var dochotIdx = state.pendingAutoChecks.indexOf('dochot');
+            if (dochotIdx !== -1) state.pendingAutoChecks.splice(dochotIdx, 1);
+            fetchAndDisplay(dochotMatches[0].id);
+            return;
+          }
+        }
+        // Clear dochot from pending if we didn't auto-select
+        var dochotIdx = state.pendingAutoChecks.indexOf('dochot');
+        if (dochotIdx !== -1) state.pendingAutoChecks.splice(dochotIdx, 1);
 
         // Show auto-selection notification
         if (state.autoMessages.length > 0) {
@@ -654,31 +683,33 @@
       name.textContent = file.name;
       card.appendChild(name);
 
-      // Action buttons
-      var actions = document.createElement('span');
-      actions.className = 'file-card__actions';
+      // Action buttons — only for images inside תמונות folders
+      if (inPhotosFolder && isImageFile(file.name)) {
+        var actions = document.createElement('span');
+        actions.className = 'file-card__actions';
 
-      var editBtn = document.createElement('button');
-      editBtn.className = 'file-card__action-btn';
-      editBtn.type = 'button';
-      editBtn.textContent = '✏️';
-      editBtn.title = 'שנה שם';
-      (function (f, cardEl) {
-        editBtn.addEventListener('click', function () { enterEditMode(f, cardEl); });
-      })(file, card);
+        var editBtn = document.createElement('button');
+        editBtn.className = 'file-card__action-btn';
+        editBtn.type = 'button';
+        editBtn.textContent = '✏️';
+        editBtn.title = 'שנה שם';
+        (function (f, cardEl) {
+          editBtn.addEventListener('click', function () { enterEditMode(f, cardEl); });
+        })(file, card);
 
-      var deleteBtn = document.createElement('button');
-      deleteBtn.className = 'file-card__action-btn file-card__action-btn--danger';
-      deleteBtn.type = 'button';
-      deleteBtn.textContent = '🗑️';
-      deleteBtn.title = 'מחק';
-      (function (f, cardEl, idx) {
-        deleteBtn.addEventListener('click', function () { enterDeleteMode(f, cardEl, idx); });
-      })(file, card, index);
+        var deleteBtn = document.createElement('button');
+        deleteBtn.className = 'file-card__action-btn file-card__action-btn--danger';
+        deleteBtn.type = 'button';
+        deleteBtn.textContent = '🗑️';
+        deleteBtn.title = 'מחק';
+        (function (f, cardEl, idx) {
+          deleteBtn.addEventListener('click', function () { enterDeleteMode(f, cardEl, idx); });
+        })(file, card, index);
 
-      actions.appendChild(editBtn);
-      actions.appendChild(deleteBtn);
-      card.appendChild(actions);
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        card.appendChild(actions);
+      }
 
       li.appendChild(card);
       dom.fileList.appendChild(li);
@@ -725,20 +756,17 @@
     var nameEl = cardEl.querySelector('.file-card__name');
     var actionsEl = cardEl.querySelector('.file-card__actions');
 
-    // Replace name span with input
+    // Replace name span with input (basename only, no extension)
+    var dotIndex = file.name.lastIndexOf('.');
+    var baseName = dotIndex > 0 ? file.name.substring(0, dotIndex) : file.name;
+    var ext = dotIndex > 0 ? file.name.substring(dotIndex) : '';
     var input = document.createElement('input');
     input.className = 'file-card__edit-input';
     input.type = 'text';
-    input.value = file.name;
+    input.value = baseName;
     nameEl.replaceWith(input);
     input.focus();
-    // Select filename without extension
-    var dotIndex = file.name.lastIndexOf('.');
-    if (dotIndex > 0) {
-      input.setSelectionRange(0, dotIndex);
-    } else {
-      input.select();
-    }
+    input.select();
 
     // Replace actions with save/cancel
     actionsEl.innerHTML = '';
@@ -763,11 +791,12 @@
     });
 
     saveBtn.addEventListener('click', function () {
-      var newName = input.value.trim();
-      if (!newName || newName === file.name) {
+      var newBaseName = input.value.trim();
+      if (!newBaseName || newBaseName === baseName) {
         renderFiles();
         return;
       }
+      var newName = newBaseName + ext;
 
       // Show spinner
       actionsEl.innerHTML = '';
@@ -972,6 +1001,113 @@
   }
 
   // ============================================
+  // Previous Visit Detection & File Copy
+  // ============================================
+  var VISIT_NUM_REGEX = /(?:דוח\s+)?ביקור\s*[-\s]*(?:מס(?:פר|'?)?\s*[-\s]*)?(\d+)/;
+  var DOC_EXTENSIONS = ['docx', 'doc', 'rtf'];
+
+  function findPreviousVisitFolder() {
+    var visitFolders = state.currentItems.filter(function (f) {
+      return VISIT_NUM_REGEX.test(f.name);
+    });
+    if (visitFolders.length === 0) return null;
+
+    // By highest visit number
+    var byNumber = null;
+    var maxNum = 0;
+    visitFolders.forEach(function (f) {
+      var match = f.name.match(VISIT_NUM_REGEX);
+      if (match) {
+        var num = parseInt(match[1], 10);
+        if (num > maxNum) { maxNum = num; byNumber = f; }
+      }
+    });
+
+    // By most recent createdDateTime
+    var byDate = null;
+    var maxDate = '';
+    visitFolders.forEach(function (f) {
+      var dt = f.createdDateTime || '';
+      if (dt > maxDate) { maxDate = dt; byDate = f; }
+    });
+
+    if (!byNumber && !byDate) return null;
+    if (byNumber && byDate && byNumber.id === byDate.id) {
+      return { folder: byNumber, ambiguous: false };
+    }
+    if (!byNumber) return { folder: byDate, ambiguous: false };
+    if (!byDate) return { folder: byNumber, ambiguous: false };
+    return { byNumber: byNumber, byDate: byDate, ambiguous: true };
+  }
+
+  function getDocFiles(items) {
+    return items.filter(function (item) {
+      if (item.folder) return false;
+      var ext = item.name.substring(item.name.lastIndexOf('.') + 1).toLowerCase();
+      return DOC_EXTENSIONS.indexOf(ext) !== -1;
+    });
+  }
+
+  function copyPreviousVisitFiles(sourceFolderId, targetFolderId, newVisitName) {
+    // List files in source visit folder
+    return fetchItems(sourceFolderId)
+      .then(function (items) {
+        var docs = getDocFiles(items);
+        if (docs.length === 0) return { copied: [], failed: [] };
+
+        // Copy files sequentially to avoid webhook rate limits
+        var copied = [];
+        var failed = [];
+        var chain = Promise.resolve();
+        docs.forEach(function (doc) {
+          chain = chain.then(function () {
+            return copyFile(doc.id, targetFolderId, doc.name)
+              .then(function (result) {
+                copied.push({ name: doc.name, id: result.id || null });
+              })
+              .catch(function (err) {
+                failed.push({ name: doc.name, error: err.message });
+              });
+          });
+        });
+        return chain.then(function () { return { copied: copied, failed: failed }; });
+      });
+  }
+
+  function renameReportFiles(copiedFiles, newVisitName, targetFolderId) {
+    if (copiedFiles.length === 0) return Promise.resolve();
+
+    var reportRegex = /(?:ביקור|דוח)/;
+    var chain = Promise.resolve();
+    var renameCount = 0;
+
+    copiedFiles.forEach(function (file) {
+      if (!reportRegex.test(file.name) || !file.id) return;
+      chain = chain.then(function () {
+        var ext = file.name.substring(file.name.lastIndexOf('.'));
+        var baseName = newVisitName;
+        renameCount++;
+        if (renameCount > 1) baseName += ' (' + renameCount + ')';
+        var newName = baseName + ext;
+        return renameFile(file.id, newName).catch(function () {
+          // Rename failure is non-critical
+        });
+      });
+    });
+    return chain;
+  }
+
+  function showCopyResult(result) {
+    if (result.copied.length === 0) return;
+    var msg = 'הועתקו ' + result.copied.length + ' קבצים מהביקור הקודם';
+    if (result.failed.length > 0) {
+      msg += ' (' + result.failed.length + ' נכשלו)';
+    }
+    dom.autoMsg.textContent = msg;
+    dom.autoMsg.hidden = false;
+  }
+
+  // ============================================
   // Photo Management
   // ============================================
   function getNextPhotoNumber() {
@@ -1015,6 +1151,8 @@
           conversions.push(
             heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
               .then(function (jpegBlob) {
+                photo.file = jpegBlob;
+                photo.ext = '.jpg';
                 photo.thumbUrl = URL.createObjectURL(jpegBlob);
                 photo.status = 'pending';
                 renderPhotos();
@@ -1301,6 +1439,38 @@
     dom.visitName.value = name;
     dom.visitForm.hidden = false;
     dom.visitError.hidden = true;
+
+    // Detect previous visit for file copying
+    var prev = findPreviousVisitFolder();
+    state.previousVisit = null;
+    dom.visitCopyPrompt.hidden = true;
+
+    if (prev && prev.ambiguous) {
+      // Show disambiguation prompt
+      dom.copyChoiceNumber.textContent = prev.byNumber.name;
+      dom.copyChoiceDate.textContent = prev.byDate.name;
+      dom.visitCopyPrompt.hidden = false;
+      state.previousVisit = null; // user must pick
+
+      dom.copyChoiceNumber.onclick = function () {
+        state.previousVisit = prev.byNumber;
+        dom.visitCopyPrompt.hidden = true;
+        dom.autoMsg.textContent = 'דוחות יועתקו מ: ' + prev.byNumber.name;
+        dom.autoMsg.hidden = false;
+      };
+      dom.copyChoiceDate.onclick = function () {
+        state.previousVisit = prev.byDate;
+        dom.visitCopyPrompt.hidden = true;
+        dom.autoMsg.textContent = 'דוחות יועתקו מ: ' + prev.byDate.name;
+        dom.autoMsg.hidden = false;
+      };
+      dom.copySkip.onclick = function () {
+        state.previousVisit = null;
+        dom.visitCopyPrompt.hidden = true;
+      };
+    } else if (prev && !prev.ambiguous) {
+      state.previousVisit = prev.folder;
+    }
   });
 
   dom.confirmVisitBtn.addEventListener('click', function () {
@@ -1308,16 +1478,17 @@
     if (!visitName) return;
 
     var parentId = state.breadcrumbs[state.breadcrumbs.length - 1].id;
+    var prevVisit = state.previousVisit;
 
     dom.confirmVisitBtn.hidden = true;
     dom.visitCreating.hidden = false;
     dom.visitError.hidden = true;
     dom.visitName.disabled = true;
+    dom.visitCopyPrompt.hidden = true;
 
-    // Step 1: Create visit folder
+    // Step 1: Create visit folder + תמונות
     createFolder(parentId, visitName)
       .then(function (visitFolder) {
-        // Step 2: Create תמונות inside it
         return createFolder(visitFolder.id, 'תמונות')
           .then(function (photosFolder) {
             return { visitFolder: visitFolder, photosFolder: photosFolder };
@@ -1331,13 +1502,27 @@
         state.targetFolderExists = true;
         state.uploadTargetId = result.photosFolder.id;
 
-        // Update UI
+        // Update UI — user can start uploading photos immediately
         renderBreadcrumbs();
         dom.createVisit.hidden = true;
         dom.folderList.innerHTML = '';
         dom.empty.hidden = true;
         showTargetFolder();
         saveLocation();
+
+        // Step 2: Copy files from previous visit (background, non-blocking)
+        if (prevVisit) {
+          copyPreviousVisitFiles(prevVisit.id, result.visitFolder.id, visitName)
+            .then(function (copyResult) {
+              if (copyResult.copied.length > 0) {
+                renameReportFiles(copyResult.copied, visitName, result.visitFolder.id)
+                  .then(function () { showCopyResult(copyResult); });
+              }
+            })
+            .catch(function () {
+              // Copy failure is non-critical — don't show error
+            });
+        }
       })
       .catch(function (err) {
         dom.visitError.textContent = err.message || 'שגיאה ביצירת תיקיה';
